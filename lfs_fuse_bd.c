@@ -84,7 +84,6 @@ int lfs_fuse_bd_prog(const struct lfs_config *cfg, lfs_block_t block,
     int fd = (intptr_t)cfg->context;
 
     // check if write is valid
-    assert(off == 0);
     assert(block < cfg->block_count);
 
     // go to block

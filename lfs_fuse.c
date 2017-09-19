@@ -226,13 +226,27 @@ int lfs_fuse_release(const char *path, struct fuse_file_info *fi) {
     return err;
 }
 
+int lfs_fuse_fgetattr(const char *path, struct stat *s,
+        struct fuse_file_info *fi) {
+    lfs_file_t *file = (lfs_file_t*)fi->fh;
+
+    lfs_fuse_tostat(s, &(struct lfs_info){
+        .size = lfs_file_size(&lfs, file),
+        .type = LFS_TYPE_REG,
+    });
+
+    return 0;
+}
+
 int lfs_fuse_read(const char *path, char *buf, size_t size,
         off_t off, struct fuse_file_info *fi) {
     lfs_file_t *file = (lfs_file_t*)fi->fh;
 
-    lfs_soff_t soff = lfs_file_seek(&lfs, file, off, LFS_SEEK_SET);
-    if (soff < 0) {
-        return soff;
+    if (lfs_file_tell(&lfs, file) != off) {
+        lfs_soff_t soff = lfs_file_seek(&lfs, file, off, LFS_SEEK_SET);
+        if (soff < 0) {
+            return soff;
+        }
     }
 
     return lfs_file_read(&lfs, file, buf, size);
@@ -242,22 +256,14 @@ int lfs_fuse_write(const char *path, const char *buf, size_t size,
         off_t off, struct fuse_file_info *fi) {
     lfs_file_t *file = (lfs_file_t*)fi->fh;
 
-    lfs_soff_t soff = lfs_file_seek(&lfs, file, off, LFS_SEEK_SET);
-    if (soff < 0) {
-        return soff;
+    if (lfs_file_tell(&lfs, file) != off) {
+        lfs_soff_t soff = lfs_file_seek(&lfs, file, off, LFS_SEEK_SET);
+        if (soff < 0) {
+            return soff;
+        }
     }
 
-    int res = lfs_file_write(&lfs, file, buf, size);
-    if (res < 0) {
-        return res;
-    }
-
-    int err = lfs_file_sync(&lfs, file);
-    if (err) {
-        return err;
-    }
-
-    return res;
+    return lfs_file_write(&lfs, file, buf, size);
 }
 
 int lfs_fuse_fsync(const char *path, int isdatasync,
@@ -332,6 +338,7 @@ static struct fuse_operations lfs_fuse_ops = {
     .create     = lfs_fuse_create,
     .truncate   = lfs_fuse_truncate,
     .release    = lfs_fuse_release,
+    .fgetattr   = lfs_fuse_fgetattr,
     .read       = lfs_fuse_read,
     .write      = lfs_fuse_write,
     .fsync      = lfs_fuse_fsync,
