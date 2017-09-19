@@ -37,9 +37,9 @@ void lfs_crc(uint32_t *crc, const void *buffer, size_t size);
 
 
 // Logging functions
-#define LFS_DEBUG(fmt, ...) printf("lfs debug: " fmt "\n", __VA_ARGS__)
-#define LFS_WARN(fmt, ...)  printf("lfs warn: " fmt "\n", __VA_ARGS__)
-#define LFS_ERROR(fmt, ...) printf("lfs error: " fmt "\n", __VA_ARGS__)
+#define LFS_DEBUG(fmt, ...) fprintf(stderr, "lfs debug: " fmt "\n", __VA_ARGS__)
+#define LFS_WARN(fmt, ...)  fprintf(stderr, "lfs warn: " fmt "\n", __VA_ARGS__)
+#define LFS_ERROR(fmt, ...) fprintf(stderr, "lfs error: " fmt "\n", __VA_ARGS__)
 
 
 #endif
