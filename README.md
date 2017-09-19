@@ -29,8 +29,6 @@ make
 
 This should have built the `lfs` program in the top-level directory.
 
-littlefs-fuse has two modes of operation, formatting and mounting.
-
 From here we will need a block device. If you don't have removable storage
 handy, you can use a file-backed block device with Linux's loop devices:
 ``` bash
@@ -38,6 +36,8 @@ sudo chmod a+rw /dev/loop0                  # make loop device user accessible
 dd if=/dev/zero of=image bs=512 count=2048  # create a 1MB image
 losetup /dev/loop0 image                    # attach the loop device
 ```
+
+littlefs-fuse has two modes of operation, formatting and mounting.
 
 To format a block device, pass the `--format` flag. Note! This will erase any
 data on the block device!
