@@ -286,12 +286,28 @@ int lfs_fuse_create(const char *path, mode_t mode, struct fuse_file_info *fi) {
     return lfs_fuse_fsync(path, 0, fi);
 }
 
-// unsupported functions
-int lfs_fuse_truncate(const char *path, off_t size) {
-    // not supported, fail
-    return -EPERM;
+int lfs_fuse_ftruncate(const char *path, off_t size,
+        struct fuse_file_info *fi) {
+    lfs_file_t *file = (lfs_file_t*)fi->fh;
+    return lfs_file_truncate(&lfs, file, size);
 }
 
+int lfs_fuse_truncate(const char *path, off_t size) {
+    lfs_file_t file;
+    int err = lfs_file_open(&lfs, &file, path, LFS_O_WRONLY);
+    if (err) {
+        return err;
+    }
+
+    err = lfs_file_truncate(&lfs, &file, size);
+    if (err) {
+        return err;
+    }
+
+    return lfs_file_close(&lfs, &file);
+}
+
+// unsupported functions
 int lfs_fuse_link(const char *from, const char *to) {
     // not supported, fail
     return -EPERM;
