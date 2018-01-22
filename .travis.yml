@@ -19,3 +19,4 @@ script:
     - cp -r ../littlefs .
     - cd littlefs && ls
     - make -B test_dirs
+    - make -B test_files
