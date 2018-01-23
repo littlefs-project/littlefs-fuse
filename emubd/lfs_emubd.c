@@ -1,8 +1,19 @@
 /*
  * Block device emulated on standard files
  *
- * Copyright (c) 2017 Christopher Haster
- * Distributed under the Apache 2.0 license
+ * Copyright (c) 2017 ARM Limited
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 #include "emubd/lfs_emubd.h"
 
@@ -127,8 +138,8 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
     snprintf(emu->child, LFS_NAME_MAX, "%x", block);
 
     FILE *f = fopen(emu->path, "r+b");
-    if (!f && errno != ENOENT) {
-        return -errno;
+    if (!f) {
+        return (errno == EACCES) ? 0 : -errno;
     }
 
     // Check that file was erased
@@ -178,14 +189,14 @@ int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
         return -errno;
     }
 
-    if (!err && S_ISREG(st.st_mode)) {
+    if (!err && S_ISREG(st.st_mode) && (S_IWUSR & st.st_mode)) {
         int err = unlink(emu->path);
         if (err) {
             return -errno;
         }
     }
 
-    if (err || S_ISREG(st.st_mode)) {
+    if (err || (S_ISREG(st.st_mode) && (S_IWUSR & st.st_mode))) {
         FILE *f = fopen(emu->path, "w");
         if (!f) {
             return -errno;
