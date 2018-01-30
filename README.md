@@ -13,7 +13,7 @@ can be viewed in a hex-editor simultaneously.
 littlefs-fuse uses FUSE to interact with the Linux kernel, which means
 it can be compiled into a simple user program without kernel modifications.
 This comes with a performance penalty, but works well for the littlefs,
-since littlefs is inteded for embedded systems.
+since littlefs is intended for embedded systems.
 
 ## Usage
 
