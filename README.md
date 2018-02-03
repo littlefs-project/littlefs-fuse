@@ -5,50 +5,80 @@ A FUSE wrapper that puts the littlefs in user-space.
 **FUSE** - https://github.com/libfuse/libfuse  
 **littlefs** - https://github.com/geky/littlefs  
 
-This project allows you to mount littlefs directly in a Linux machine.
+This project allows you to mount littlefs directly in a Linux or FreeBSD machine.
 This allows you to easily debug an embedded system using littlefs on
 removable storage, or even debug littlefs itself, since the block device
 can be viewed in a hex-editor simultaneously.
 
-littlefs-fuse uses FUSE to interact with the Linux kernel, which means
+littlefs-fuse uses FUSE to interact with the host OS kernel, which means
 it can be compiled into a simple user program without kernel modifications.
 This comes with a performance penalty, but works well for the littlefs,
 since littlefs is intended for embedded systems.
 
 ## Usage
 
-littlefs-fuse requires FUSE version 2.6, you can find your FUSE version with:
+littlefs-fuse requires FUSE version 2.6, you can find your FUSE version with:  
+Linux:
 ``` bash
 fusermount -V
 ```
+FreeBSD:
+``` bash
+pkg info fusefs-libs | grep Version
+```
 
-Once you have cloned littlefs-fuse, you can compile the program with make:
+Once you have cloned littlefs-fuse, you can compile the program with make:  
+Linux:
 ``` bash
 make
+```
+FreeBSD:
+``` bash
+gmake
 ```
 
 This should have built the `lfs` program in the top-level directory.
 
 From here we will need a block device. If you don't have removable storage
-handy, you can use a file-backed block device with Linux's loop devices:
+handy, you can use a file-backed block device with Linux's loop devices:  
+Linux:
 ``` bash
 sudo chmod a+rw /dev/loop0                  # make loop device user accessible
 dd if=/dev/zero of=image bs=512 count=2048  # create a 1MB image
 losetup /dev/loop0 image                    # attach the loop device
 ```
 
+FreeBSD:
+``` bash
+dd if=/dev/zero of=imageBSD bs=1m count=1   # create a 1 MB image
+sudo mdconfig -at vnode -f image            # attach the loop device
+sudo chmod 666 /dev/mdX                     # make loop device user accessible,
+                                            # where mdX is device created with mdconfig command
+```
+
 littlefs-fuse has two modes of operation, formatting and mounting.
 
 To format a block device, pass the `--format` flag. Note! This will erase any
-data on the block device!
+data on the block device!  
+Linux:
 ``` bash
 ./lfs --format /dev/loop0
 ```
+FreeBSD:
+``` bash
+./lfs --format /dev/md0
+```
 
-To mount, run littlefs-fuse with a block device and a mountpoint:
+To mount, run littlefs-fuse with a block device and a mountpoint:  
+Linux:
 ``` bash
 mkdir mount
 ./lfs /dev/loop0 mount
+```
+FreeBSD:
+``` bash
+mkdir mount
+./lfs /dev/md0 mount
 ```
 
 Once mounted, the littlefs filesystem will be accessible through the
@@ -59,6 +89,20 @@ cd mount
 echo "hello" > hi.txt
 ls
 cat hi.txt
+```
+
+After you done with using littlefs filesystem, you can unmount it and detach the loop device:  
+Linux:
+``` bash
+cd ..
+umount mount
+sudo losetup -d /dev/loop0
+```
+FreeBSD:
+``` bash
+cd ..
+umount mount
+sudo mdconfig -du 0
 ```
 
 ## Limitations

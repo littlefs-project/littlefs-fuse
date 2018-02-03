@@ -1,6 +1,13 @@
 TARGET = lfs
 
-CC = gcc
+OS := $(shell uname -s)
+
+ifeq ($(OS), FreeBSD)
+	CC = cc
+else
+	CC = gcc
+endif
+
 AR = ar
 SIZE = size
 
@@ -24,6 +31,11 @@ CFLAGS += -D_XOPEN_SOURCE=700
 
 LFLAGS += -lfuse
 
+ifeq ($(OS), FreeBSD)
+	CFLAGS += -I /usr/local/include
+	CFLAGS += -D __BSD_VISIBLE
+	LFLAGS += -L /usr/local/lib
+endif
 
 all: $(TARGET)
 
