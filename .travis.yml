@@ -20,3 +20,7 @@ script:
     - cd littlefs && ls
     - make -B test_dirs
     - make -B test_files
+    - ls
+    - ls blocks
+    - xxd -g1 blocks/74
+    - xxd -g1 blocks/73
