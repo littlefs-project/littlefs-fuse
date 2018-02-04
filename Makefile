@@ -2,12 +2,7 @@ TARGET = lfs
 
 OS := $(shell uname -s)
 
-ifeq ($(OS), FreeBSD)
-	CC = cc
-else
-	CC = gcc
-endif
-
+CC = cc
 AR = ar
 SIZE = size
 
