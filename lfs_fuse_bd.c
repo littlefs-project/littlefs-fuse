@@ -10,9 +10,15 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdint.h>
+#include <assert.h>
+#if !defined(__FreeBSD__)
 #include <stropts.h>
 #include <linux/fs.h>
-#include <assert.h>
+#elif defined(__FreeBSD__)
+#define BLKSSZGET DIOCGSECTORSIZE
+#define BLKGETSIZE DIOCGMEDIASIZE
+#include <sys/disk.h>
+#endif
 
 
 // Block device wrapper for user-space block devices
