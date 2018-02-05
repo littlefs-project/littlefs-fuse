@@ -26,11 +26,11 @@ def generate(test):
         file.write(template.format(tests='\n'.join(lines)))
 
     # Remove build artifacts to force rebuild
-    try:
-        os.remove('test.o')
-        os.remove('lfs')
-    except OSError:
-        pass
+#    try:
+#        os.remove('test.o')
+#        os.remove('lfs')
+#    except OSError:
+#        pass
 
 def compile():
     subprocess.check_call(['make', '--no-print-directory', '-s'])
