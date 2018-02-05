@@ -22,5 +22,5 @@ script:
     - make -B test_files
     - ls
     - ls blocks
-    - xxd -g1 blocks/74
-    - xxd -g1 blocks/73
+    - xxd -g1 blocks/4a
+    - xxd -g1 blocks/4b

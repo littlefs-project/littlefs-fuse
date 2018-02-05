@@ -139,7 +139,9 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
 
     FILE *f = fopen(emu->path, "r+b");
     if (!f) {
-        return (errno == EACCES) ? 0 : -errno;
+        int e = errno;
+        printf("prog failed %d (%s)\n", e, emu->path);
+        return (e == EACCES) ? 0 : -e;
     }
 
     // Check that file was erased
@@ -194,6 +196,8 @@ int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
         if (err) {
             return -errno;
         }
+    } else {
+        printf("erase failed %d (%s)\n", err, emu->path);
     }
 
     if (err || (S_ISREG(st.st_mode) && (S_IWUSR & st.st_mode))) {
