@@ -24,3 +24,11 @@ script:
     - ls blocks
     - xxd -g1 blocks/4a
     - xxd -g1 blocks/4b
+    - cd $TRAVIS_BUILD_DIR
+    - mkdir image
+    - cp disk image
+    - cd image
+    - git init
+    - git add disk
+    - git commit --author="geky-bot <bot@geky.net>" -m 'added disk'
+    - git push https://$GEKY_BOT@github.com/geky-bot/uploads.git master
