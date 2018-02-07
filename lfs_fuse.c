@@ -280,6 +280,10 @@ int lfs_fuse_fsync(const char *path, int isdatasync,
 int lfs_fuse_flush(const char *path, struct fuse_file_info *fi) {
     i += 1;
     fprintf(stderr, "i = %#llx\n", i);
+    fprintf(stderr, "begin = %#x\n", lfs.free.begin);
+    fprintf(stderr, "end   = %#x\n", lfs.free.end);
+    fprintf(stderr, "off   = %#x\n", lfs.free.off);
+    fprintf(stderr, "count = %#x\n", lfs.cfg->block_count);
 
     lfs_file_t *file = (lfs_file_t*)fi->fh;
     int err = lfs_file_sync(&lfs, file);
