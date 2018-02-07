@@ -215,7 +215,7 @@ int lfs_fuse_open(const char *path, struct fuse_file_info *fi) {
         return err;
     }
 
-    if (i == 0x4ca5b) {
+    if (i == 0x4ca5b+1) {
         exit(7);
     }
 
