@@ -29,7 +29,9 @@ script:
     - cp disk image
     - cp log.txt image
     - cd image
+    - split log.txt log
+    - rm log.txt
     - git init
-    - git add disk log.txt
+    - git add disk log*
     - git commit --author="geky-bot <bot@geky.net>" -m 'added disk and log'
     - git push https://$GEKY_BOT@github.com/geky-bot/uploads.git master --force
