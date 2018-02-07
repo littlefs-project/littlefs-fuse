@@ -14,7 +14,7 @@ before_script:
 script:
     - make
     - ./lfs --format /dev/loop0
-    - ./lfs /dev/loop0 mount
+    - ./lfs -d /dev/loop0 mount 2> log.txt &
     - cd mount && ls
     - cp -r ../littlefs .
     - cd littlefs && ls
@@ -27,8 +27,9 @@ script:
     - cd $TRAVIS_BUILD_DIR
     - mkdir image
     - cp disk image
+    - cp log.txt image
     - cd image
     - git init
-    - git add disk
-    - git commit --author="geky-bot <bot@geky.net>" -m 'added disk'
-    - git push https://$GEKY_BOT@github.com/geky-bot/uploads.git master
+    - git add disk log.txt
+    - git commit --author="geky-bot <bot@geky.net>" -m 'added disk and log'
+    - git push https://$GEKY_BOT@github.com/geky-bot/uploads.git master --force
