@@ -285,7 +285,8 @@ static int lfs_alloc_lookahead(void *p, lfs_block_t block) {
     return 0;
 }
 
-static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
+static int lfs_alloc_single(lfs_t *lfs, lfs_block_t *block,
+        lfs_block_t *prev, int prev_count) {
     while (true) {
         while (true) {
             // check if we have looked at all blocks since last ack
@@ -318,7 +319,26 @@ static int lfs_alloc(lfs_t *lfs, lfs_block_t *block) {
         if (err) {
             return err;
         }
+
+        // mask any we've already allocated
+        for (int i = 0; i < prev_count; i++) {
+            int err = lfs_alloc_lookahead(lfs, prev[i]);
+            if (err) {
+                return err;
+            }
+        }
     }
+}
+
+static int lfs_alloc(lfs_t *lfs, lfs_block_t *blocks, int count) {
+    for (int i = 0; i < count; i++) {
+        int err = lfs_alloc_single(lfs, &blocks[i], blocks, i);
+        if (err) {
+            return err;
+        }
+    }
+
+    return 0;
 }
 
 static void lfs_alloc_ack(lfs_t *lfs) {
@@ -357,16 +377,14 @@ static inline lfs_size_t lfs_entry_size(const lfs_entry_t *entry) {
 
 static int lfs_dir_alloc(lfs_t *lfs, lfs_dir_t *dir) {
     // allocate pair of dir blocks
-    for (int i = 0; i < 2; i++) {
-        int err = lfs_alloc(lfs, &dir->pair[i]);
-        if (err) {
-            return err;
-        }
+    int err = lfs_alloc(lfs, dir->pair, 2);
+    if (err) {
+        return err;
     }
 
     // rather than clobbering one of the blocks we just pretend
     // the revision may be valid
-    int err = lfs_bd_read(lfs, dir->pair[0], 0, &dir->d.rev, 4);
+    err = lfs_bd_read(lfs, dir->pair[0], 0, &dir->d.rev, 4);
     if (err) {
         return err;
     }
@@ -559,7 +577,7 @@ relocate:
         }
 
         // relocate half of pair
-        int err = lfs_alloc(lfs, &dir->pair[0]);
+        int err = lfs_alloc(lfs, &dir->pair[0], 1);
         if (err) {
             return err;
         }
@@ -1088,7 +1106,7 @@ static int lfs_ctz_extend(lfs_t *lfs,
     while (true) {
         // go ahead and grab a block
         lfs_block_t nblock;
-        int err = lfs_alloc(lfs, &nblock);
+        int err = lfs_alloc(lfs, &nblock, 1);
         if (err) {
             return err;
         }
@@ -1327,7 +1345,7 @@ relocate:
 
     // just relocate what exists into new block
     lfs_block_t nblock;
-    int err = lfs_alloc(lfs, &nblock);
+    int err = lfs_alloc(lfs, &nblock, 1);
     if (err) {
         return err;
     }
