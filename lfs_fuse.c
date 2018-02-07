@@ -195,7 +195,12 @@ int lfs_fuse_unlink(const char *path) {
     return lfs_remove(&lfs, path);
 }
 
+uint64_t i = 0;
 int lfs_fuse_open(const char *path, struct fuse_file_info *fi) {
+    if (i == 0x4ca5b) {
+        exit(7);
+    }
+
     lfs_file_t *file = malloc(sizeof(lfs_file_t));
     memset(file, 0, sizeof(lfs_file_t));
 
@@ -273,15 +278,11 @@ int lfs_fuse_fsync(const char *path, int isdatasync,
 }
 
 int lfs_fuse_flush(const char *path, struct fuse_file_info *fi) {
-    static uint64_t i = 0;
     i += 1;
     fprintf(stderr, "i = %#llx\n", i);
 
     lfs_file_t *file = (lfs_file_t*)fi->fh;
     int err = lfs_file_sync(&lfs, file);
-    if (i == 0x4ca5b) {
-        exit(7);
-    }
     return err;
 }
 
