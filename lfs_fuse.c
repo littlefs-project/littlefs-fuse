@@ -197,10 +197,6 @@ int lfs_fuse_unlink(const char *path) {
 
 uint64_t i = 0;
 int lfs_fuse_open(const char *path, struct fuse_file_info *fi) {
-    if (i == 0x4ca5b) {
-        exit(7);
-    }
-
     lfs_file_t *file = malloc(sizeof(lfs_file_t));
     memset(file, 0, sizeof(lfs_file_t));
 
@@ -217,6 +213,10 @@ int lfs_fuse_open(const char *path, struct fuse_file_info *fi) {
     if (err) {
         free(file);
         return err;
+    }
+
+    if (i == 0x4ca5b) {
+        exit(7);
     }
 
     fi->fh = (uint64_t)file;
