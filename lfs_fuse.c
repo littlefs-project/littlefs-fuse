@@ -273,6 +273,9 @@ int lfs_fuse_fsync(const char *path, int isdatasync,
 }
 
 int lfs_fuse_flush(const char *path, struct fuse_file_info *fi) {
+    static uint64_t i = 0;
+    i += 1;
+    fprintf(stderr, "i = %#llx\n", i);
     lfs_file_t *file = (lfs_file_t*)fi->fh;
     return lfs_file_sync(&lfs, file);
 }
