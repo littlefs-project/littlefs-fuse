@@ -210,9 +210,6 @@ int lfs_fuse_open(const char *path, struct fuse_file_info *fi) {
     if (fi->flags & O_APPEND)        flags |= LFS_O_APPEND;
 
     int err = lfs_file_open(&lfs, file, path, flags);
-    if (i == 0x4ca5b+1) {
-        exit(7);
-    }
     if (err) {
         free(file);
         return err;
