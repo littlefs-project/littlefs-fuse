@@ -5,7 +5,6 @@
  * Distributed under the MIT license
  */
 
-#define LFS_FUSE_VERSION "1.0"
 #define FUSE_USE_VERSION 26
 
 #ifdef linux
@@ -432,7 +431,10 @@ int lfs_fuse_opt_proc(void *data, const char *arg,
             exit(1);
             
         case KEY_VERSION:
-            fprintf(stderr, "littlefs version %s", LFS_FUSE_VERSION);
+            fprintf(stderr, "littlefs version: v%d.%d\n",
+                 LFS_VERSION_MAJOR, LFS_VERSION_MINOR);
+            fprintf(stderr, "littlefs disk version: v%d.%d\n",
+                 LFS_DISK_VERSION_MAJOR, LFS_DISK_VERSION_MINOR);
             fuse_opt_add_arg(args, "--version");
             fuse_main(args->argc, args->argv, &lfs_fuse_ops, NULL);
             exit(0);
