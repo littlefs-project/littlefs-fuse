@@ -22,6 +22,23 @@
 #include <stdbool.h>
 
 
+/// Version info ///
+
+// Software library version
+// Major (top-nibble), incremented on backwards incompatible changes
+// Minor (bottom-nibble), incremented on feature additions
+#define LFS_VERSION 0x00010002
+#define LFS_VERSION_MAJOR (0xffff & (LFS_VERSION >> 16))
+#define LFS_VERSION_MINOR (0xffff & (LFS_VERSION >>  0))
+
+// Version of On-disk data structures
+// Major (top-nibble), incremented on backwards incompatible changes
+// Minor (bottom-nibble), incremented on feature additions
+#define LFS_DISK_VERSION 0x00010001
+#define LFS_DISK_VERSION_MAJOR (0xffff & (LFS_DISK_VERSION >> 16))
+#define LFS_DISK_VERSION_MINOR (0xffff & (LFS_DISK_VERSION >>  0))
+
+
 /// Definitions ///
 
 // Type definitions
@@ -49,6 +66,7 @@ enum lfs_error {
     LFS_ERR_NOTDIR   = -20,  // Entry is not a dir
     LFS_ERR_ISDIR    = -21,  // Entry is a dir
     LFS_ERR_NOTEMPTY = -39,  // Dir is not empty
+    LFS_ERR_BADF     = -9,   // Bad file number
     LFS_ERR_INVAL    = -22,  // Invalid parameter
     LFS_ERR_NOSPC    = -28,  // No space left on device
     LFS_ERR_NOMEM    = -12,  // No more memory available
@@ -242,8 +260,9 @@ typedef struct lfs_superblock {
 
 typedef struct lfs_free {
     lfs_block_t begin;
-    lfs_block_t end;
+    lfs_block_t size;
     lfs_block_t off;
+    lfs_block_t ack;
     uint32_t *buffer;
 } lfs_free_t;
 
