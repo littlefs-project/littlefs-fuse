@@ -1,3 +1,6 @@
+env:
+    - CFLAGS=-Werror
+
 before_install:
     - fusermount -V
 
@@ -6,10 +9,9 @@ install:
 
 before_script:
     - mkdir mount
-    - |
-      sudo chmod a+rw /dev/loop0
-      dd if=/dev/zero bs=512 count=2048 of=disk
-      losetup /dev/loop0 disk
+    - sudo chmod a+rw /dev/loop0
+    - dd if=/dev/zero bs=512 count=2048 of=disk
+    - losetup /dev/loop0 disk
 
 script:
     - make
@@ -20,3 +22,32 @@ script:
     - cd littlefs && ls
     - make -B test_dirs
     - make -B test_files
+
+deploy:
+    # Let before_deploy take over
+    provider: script
+    script: 'true'
+    on:
+        branch: versioning
+
+before_deploy:
+    - cd $TRAVIS_BUILD_DIR
+    # Update tag for version defined in lfs.h
+    - LFS_VERSION=$(grep -ox '#define LFS_VERSION .*' littlefs/lfs.h | cut -d ' ' -f3)
+    - LFS_VERSION_MAJOR=$((0xffff & ($LFS_VERSION >> 16)))
+    - LFS_VERSION_MINOR=$((0xffff & ($LFS_VERSION >>  0)))
+    - LFS_VERSION="v$LFS_VERSION_MAJOR.$LFS_VERSION_MINOR"
+    - echo "littlefs version $LFS_VERSION"
+    - |
+      curl -u $GEKY_BOT -X POST \
+        https://api.github.com/repos/$TRAVIS_REPO_SLUG/git/refs \
+        -d "{
+          \"ref\": \"refs/tags/$LFS_VERSION\",
+          \"sha\": \"$TRAVIS_COMMIT\"
+        }"
+    - |
+      curl -f -u $GEKY_BOT -X PATCH \
+        https://api.github.com/repos/$TRAVIS_REPO_SLUG/git/refs/tags/$LFS_VERSION \
+        -d "{
+          \"sha\": \"$TRAVIS_COMMIT\"
+        }"
