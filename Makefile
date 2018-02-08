@@ -12,24 +12,24 @@ DEP := $(SRC:.c=.d)
 ASM := $(SRC:.c=.s)
 
 ifdef DEBUG
-CFLAGS += -O0 -g3
+override CFLAGS += -O0 -g3
 else
-CFLAGS += -Os
+override CFLAGS += -Os
 endif
 ifdef WORD
-CFLAGS += -m$(WORD)
+override CFLAGS += -m$(WORD)
 endif
-CFLAGS += -I. -Ilittlefs
-CFLAGS += -std=c99 -Wall -pedantic
-CFLAGS += -D_FILE_OFFSET_BITS=64
-CFLAGS += -D_XOPEN_SOURCE=700
+override CFLAGS += -I. -Ilittlefs
+override CFLAGS += -std=c99 -Wall -pedantic
+override CFLAGS += -D_FILE_OFFSET_BITS=64
+override CFLAGS += -D_XOPEN_SOURCE=700
 
-LFLAGS += -lfuse
+override LFLAGS += -lfuse
 
 ifeq ($(OS), FreeBSD)
-	CFLAGS += -I /usr/local/include
-	CFLAGS += -D __BSD_VISIBLE
-	LFLAGS += -L /usr/local/lib
+override CFLAGS += -I /usr/local/include
+override CFLAGS += -D __BSD_VISIBLE
+override LFLAGS += -L /usr/local/lib
 endif
 
 all: $(TARGET)
