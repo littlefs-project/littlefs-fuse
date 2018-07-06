@@ -12,7 +12,7 @@
 #include <stdint.h>
 #include <assert.h>
 #if !defined(__FreeBSD__)
-#include <stropts.h>
+#include <sys/ioctl.h>
 #include <linux/fs.h>
 #elif defined(__FreeBSD__)
 #define BLKSSZGET DIOCGSECTORSIZE
