@@ -27,6 +27,11 @@ version with:
 fusermount -V
 ```
 
+In order to build against FUSE, you will need the package `libfuse-dev`:
+``` bash
+sudo apt-get install libfuse-dev
+```
+
 Once you have cloned littlefs-fuse, you can compile the program with make:
 ``` bash
 make
