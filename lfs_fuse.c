@@ -1,8 +1,8 @@
 /*
  * FUSE wrapper for the littlefs
  *
- * Copyright (c) 2017 Christopher Haster
- * Distributed under the MIT license
+ * Copyright (c) 2017, Arm Limited. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #define FUSE_USE_VERSION 26
