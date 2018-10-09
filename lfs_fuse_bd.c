@@ -71,7 +71,7 @@ int lfs_fuse_bd_read(const struct lfs_config *cfg, lfs_block_t block,
     assert(block < cfg->block_count);
 
     // go to block
-    int err = lseek(fd, (off_t)block*cfg->block_size + (off_t)off, SEEK_SET);
+    off_t err = lseek(fd, (off_t)block*cfg->block_size + (off_t)off, SEEK_SET);
     if (err < 0) {
         return -errno;
     }
@@ -93,7 +93,7 @@ int lfs_fuse_bd_prog(const struct lfs_config *cfg, lfs_block_t block,
     assert(block < cfg->block_count);
 
     // go to block
-    int err = lseek(fd, (off_t)block*cfg->block_size + (off_t)off, SEEK_SET);
+    off_t err = lseek(fd, (off_t)block*cfg->block_size + (off_t)off, SEEK_SET);
     if (err < 0) {
         return -errno;
     }
