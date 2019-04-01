@@ -29,6 +29,7 @@
 static struct lfs_config config = {0};
 static const char *device = NULL;
 static bool format = false;
+static bool migrate = false;
 static lfs_t lfs;
 
 
@@ -36,16 +37,20 @@ static lfs_t lfs;
 void lfs_fuse_defaults(struct lfs_config *config) {
     // defaults, ram is less of a concern here than what
     // littlefs is used to, so these may end up a bit funny
-    if (!config->lookahead) {
-        config->lookahead = 8192;
-    }
-
     if (!config->prog_size) {
         config->prog_size = config->block_size;
     }
 
     if (!config->read_size) {
-        config->read_size = config->prog_size;
+        config->read_size = config->block_size;
+    }
+
+    if (!config->cache_size) {
+        config->cache_size = config->block_size;
+    }
+
+    if (!config->lookahead_size) {
+        config->lookahead_size = 8192;
     }
 }
 
@@ -73,6 +78,20 @@ int lfs_fuse_format(void) {
     return err;
 }
 
+int lfs_fuse_migrate(void) {
+    int err = lfs_fuse_bd_create(&config, device);
+    if (err) {
+        return err;
+    }
+
+    lfs_fuse_defaults(&config);
+
+    err = lfs_migrate(&lfs, &config);
+
+    lfs_fuse_bd_destroy(&config);
+    return err;
+}
+
 int lfs_fuse_mount(void) {
     int err = lfs_fuse_bd_create(&config, device);
     if (err) {
@@ -89,18 +108,12 @@ void lfs_fuse_destroy(void *eh) {
     lfs_fuse_bd_destroy(&config);
 }
 
-static int lfs_fuse_statfs_count(void *p, lfs_block_t b) {
-    *(lfs_size_t *)p += 1;
-    return 0;
-}
-
 int lfs_fuse_statfs(const char *path, struct statvfs *s) {
     memset(s, 0, sizeof(struct statvfs));
 
-    lfs_size_t in_use = 0;
-    int err = lfs_traverse(&lfs, lfs_fuse_statfs_count, &in_use);
-    if (err) {
-        return err;
+    lfs_ssize_t in_use = lfs_fs_size(&lfs);
+    if (in_use < 0) {
+        return in_use;
     }
 
     s->f_bsize = config.block_size;
@@ -108,7 +121,7 @@ int lfs_fuse_statfs(const char *path, struct statvfs *s) {
     s->f_blocks = config.block_count;
     s->f_bfree = config.block_count - in_use;
     s->f_bavail = config.block_count - in_use;
-    s->f_namemax = LFS_NAME_MAX;
+    s->f_namemax = config.name_max;
 
     return 0;
 }
@@ -133,7 +146,7 @@ int lfs_fuse_getattr(const char *path, struct stat *s) {
     }
 
     lfs_fuse_tostat(s, &info);
-	return 0;
+    return 0;
 }
 
 int lfs_fuse_access(const char *path, int mask) {
@@ -373,17 +386,23 @@ enum lfs_fuse_keys {
     KEY_HELP,
     KEY_VERSION,
     KEY_FORMAT,
+    KEY_MIGRATE,
 };
 
 #define OPT(t, p) { t, offsetof(struct lfs_config, p), 0}
 static struct fuse_opt lfs_fuse_opts[] = {
     FUSE_OPT_KEY("--format",    KEY_FORMAT),
-    OPT("-b=%"            SCNu32, block_size),
-    OPT("--block_size=%"  SCNu32, block_size),
-    OPT("--block_count=%" SCNu32, block_count),
-    OPT("--read_size=%"   SCNu32, read_size),
-    OPT("--prog_size=%"   SCNu32, prog_size),
-    OPT("--lookahead=%"   SCNu32, lookahead),
+    FUSE_OPT_KEY("--migrate",   KEY_MIGRATE),
+    OPT("-b=%"                  SCNu32, block_size),
+    OPT("--block_size=%"        SCNu32, block_size),
+    OPT("--block_count=%"       SCNu32, block_count),
+    OPT("--read_size=%"         SCNu32, read_size),
+    OPT("--prog_size=%"         SCNu32, prog_size),
+    OPT("--cache_size=%"        SCNu32, cache_size),
+    OPT("--lookahead_size=%"    SCNu32, lookahead_size),
+    OPT("--name_max=%"          SCNu32, name_max),
+    OPT("--file_max=%"          SCNu32, file_max),
+    OPT("--attr_max=%"          SCNu32, attr_max),
     FUSE_OPT_KEY("-V",          KEY_VERSION),
     FUSE_OPT_KEY("--version",   KEY_VERSION),
     FUSE_OPT_KEY("-h",          KEY_HELP),
@@ -401,11 +420,16 @@ static const char help_text[] =
 "\n"
 "littlefs options:\n"
 "    --format               format instead of mounting\n"
+"    --migrate              migrate previous version  instead of mounting\n"
 "    -b   --block_size      logical block size, overrides the block device\n"
 "    --block_count          block count, overrides the block device\n"
 "    --read_size            readable unit (block_size)\n"
 "    --prog_size            programmable unit (block_size)\n"
-"    --lookahead            size of lookahead buffer (8192)\n"
+"    --cache_size           size of caches (block_size)\n"
+"    --lookahead_size       size of lookahead buffer (8192)\n"
+"    --name_max             max size of file names (255)\n"
+"    --file_max             max size of file contents (2147483647)\n"
+"    --attr_max             max size of custom attributes (1022)\n"
 "\n";
 
 int lfs_fuse_opt_proc(void *data, const char *arg,
@@ -422,6 +446,10 @@ int lfs_fuse_opt_proc(void *data, const char *arg,
 
         case KEY_FORMAT:
             format = true;
+            return 0;
+
+        case KEY_MIGRATE:
+            migrate = true;
             return 0;
             
         case KEY_HELP:
@@ -462,6 +490,16 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
 
+    if (migrate) {
+        // migrate time, no mount
+        int err = lfs_fuse_migrate();
+        if (err) {
+            LFS_ERROR("%s", strerror(-err));
+            exit(-err);
+        }
+        exit(0);
+    }
+
     // go ahead and mount so errors are reported before backgrounding
     int err = lfs_fuse_mount();
     if (err) {
@@ -473,7 +511,7 @@ int main(int argc, char *argv[]) {
     fuse_opt_add_arg(&args, "-s");
 
     // enter fuse
-	err = fuse_main(args.argc, args.argv, &lfs_fuse_ops, NULL);
+    err = fuse_main(args.argc, args.argv, &lfs_fuse_ops, NULL);
     if (err) {
         lfs_fuse_destroy(NULL);
     }
