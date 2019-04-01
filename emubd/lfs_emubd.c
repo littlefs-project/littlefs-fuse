@@ -1,19 +1,8 @@
 /*
  * Block device emulated on standard files
  *
- * Copyright (c) 2017 ARM Limited
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright (c) 2017, Arm Limited. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 #include "emubd/lfs_emubd.h"
 
@@ -27,6 +16,41 @@
 #include <unistd.h>
 #include <assert.h>
 #include <stdbool.h>
+#include <inttypes.h>
+
+
+// Emulated block device utils
+static inline void lfs_emubd_tole32(lfs_emubd_t *emu) {
+    emu->cfg.read_size     = lfs_tole32(emu->cfg.read_size);
+    emu->cfg.prog_size     = lfs_tole32(emu->cfg.prog_size);
+    emu->cfg.block_size    = lfs_tole32(emu->cfg.block_size);
+    emu->cfg.block_count   = lfs_tole32(emu->cfg.block_count);
+
+    emu->stats.read_count  = lfs_tole32(emu->stats.read_count);
+    emu->stats.prog_count  = lfs_tole32(emu->stats.prog_count);
+    emu->stats.erase_count = lfs_tole32(emu->stats.erase_count);
+
+    for (unsigned i = 0; i < sizeof(emu->history.blocks) /
+            sizeof(emu->history.blocks[0]); i++) {
+        emu->history.blocks[i] = lfs_tole32(emu->history.blocks[i]);
+    }
+}
+
+static inline void lfs_emubd_fromle32(lfs_emubd_t *emu) {
+    emu->cfg.read_size     = lfs_fromle32(emu->cfg.read_size);
+    emu->cfg.prog_size     = lfs_fromle32(emu->cfg.prog_size);
+    emu->cfg.block_size    = lfs_fromle32(emu->cfg.block_size);
+    emu->cfg.block_count   = lfs_fromle32(emu->cfg.block_count);
+
+    emu->stats.read_count  = lfs_fromle32(emu->stats.read_count);
+    emu->stats.prog_count  = lfs_fromle32(emu->stats.prog_count);
+    emu->stats.erase_count = lfs_fromle32(emu->stats.erase_count);
+
+    for (unsigned i = 0; i < sizeof(emu->history.blocks) /
+            sizeof(emu->history.blocks[0]); i++) {
+        emu->history.blocks[i] = lfs_fromle32(emu->history.blocks[i]);
+    }
+}
 
 
 // Block device emulated on existing filesystem
@@ -56,20 +80,39 @@ int lfs_emubd_create(const struct lfs_config *cfg, const char *path) {
     }
 
     // Load stats to continue incrementing
-    snprintf(emu->child, LFS_NAME_MAX, "stats");
+    snprintf(emu->child, LFS_NAME_MAX, ".stats");
     FILE *f = fopen(emu->path, "r");
     if (!f) {
-        return -errno;
+        memset(&emu->stats, 0, sizeof(emu->stats));
+    } else {
+        size_t res = fread(&emu->stats, sizeof(emu->stats), 1, f);
+        lfs_emubd_fromle32(emu);
+        if (res < 1) {
+            return -errno;
+        }
+
+        err = fclose(f);
+        if (err) {
+            return -errno;
+        }
     }
 
-    size_t res = fread(&emu->stats, sizeof(emu->stats), 1, f);
-    if (res < 1) {
-        return -errno;
-    }
+    // Load history
+    snprintf(emu->child, LFS_NAME_MAX, ".history");
+    f = fopen(emu->path, "r");
+    if (!f) {
+        memset(&emu->history, 0, sizeof(emu->history));
+    } else {
+        size_t res = fread(&emu->history, sizeof(emu->history), 1, f);
+        lfs_emubd_fromle32(emu);
+        if (res < 1) {
+            return -errno;
+        }
 
-    err = fclose(f);
-    if (err) {
-        return -errno;
+        err = fclose(f);
+        if (err) {
+            return -errno;
+        }
     }
 
     return 0;
@@ -96,7 +139,7 @@ int lfs_emubd_read(const struct lfs_config *cfg, lfs_block_t block,
     memset(data, 0, size);
 
     // Read data
-    snprintf(emu->child, LFS_NAME_MAX, "%x", block);
+    snprintf(emu->child, LFS_NAME_MAX, "%" PRIx32, block);
 
     FILE *f = fopen(emu->path, "rb");
     if (!f && errno != ENOENT) {
@@ -135,7 +178,7 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
     assert(block < cfg->block_count);
 
     // Program data
-    snprintf(emu->child, LFS_NAME_MAX, "%x", block);
+    snprintf(emu->child, LFS_NAME_MAX, "%" PRIx32, block);
 
     FILE *f = fopen(emu->path, "r+b");
     if (!f) {
@@ -171,6 +214,13 @@ int lfs_emubd_prog(const struct lfs_config *cfg, lfs_block_t block,
         return -errno;
     }
 
+    // update history and stats
+    if (block != emu->history.blocks[0]) {
+        memcpy(&emu->history.blocks[1], &emu->history.blocks[0],
+                sizeof(emu->history) - sizeof(emu->history.blocks[0]));
+        emu->history.blocks[0] = block;
+    }
+
     emu->stats.prog_count += 1;
     return 0;
 }
@@ -182,7 +232,7 @@ int lfs_emubd_erase(const struct lfs_config *cfg, lfs_block_t block) {
     assert(block < cfg->block_count);
 
     // Erase the block
-    snprintf(emu->child, LFS_NAME_MAX, "%x", block);
+    snprintf(emu->child, LFS_NAME_MAX, "%" PRIx32, block);
     struct stat st;
     int err = stat(emu->path, &st);
     if (err && errno != ENOENT) {
@@ -216,13 +266,15 @@ int lfs_emubd_sync(const struct lfs_config *cfg) {
     lfs_emubd_t *emu = cfg->context;
 
     // Just write out info/stats for later lookup
-    snprintf(emu->child, LFS_NAME_MAX, "config");
+    snprintf(emu->child, LFS_NAME_MAX, ".config");
     FILE *f = fopen(emu->path, "w");
     if (!f) {
         return -errno;
     }
 
+    lfs_emubd_tole32(emu);
     size_t res = fwrite(&emu->cfg, sizeof(emu->cfg), 1, f);
+    lfs_emubd_fromle32(emu);
     if (res < 1) {
         return -errno;
     }
@@ -232,13 +284,33 @@ int lfs_emubd_sync(const struct lfs_config *cfg) {
         return -errno;
     }
 
-    snprintf(emu->child, LFS_NAME_MAX, "stats");
+    snprintf(emu->child, LFS_NAME_MAX, ".stats");
     f = fopen(emu->path, "w");
     if (!f) {
         return -errno;
     }
 
+    lfs_emubd_tole32(emu);
     res = fwrite(&emu->stats, sizeof(emu->stats), 1, f);
+    lfs_emubd_fromle32(emu);
+    if (res < 1) {
+        return -errno;
+    }
+
+    err = fclose(f);
+    if (err) {
+        return -errno;
+    }
+
+    snprintf(emu->child, LFS_NAME_MAX, ".history");
+    f = fopen(emu->path, "w");
+    if (!f) {
+        return -errno;
+    }
+
+    lfs_emubd_tole32(emu);
+    res = fwrite(&emu->history, sizeof(emu->history), 1, f);
+    lfs_emubd_fromle32(emu);
     if (res < 1) {
         return -errno;
     }
@@ -250,4 +322,3 @@ int lfs_emubd_sync(const struct lfs_config *cfg) {
 
     return 0;
 }
-
