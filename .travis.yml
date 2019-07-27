@@ -1,53 +1,83 @@
+# Environment variables
 env:
+  global:
     - CFLAGS=-Werror
 
-before_install:
-    - fusermount -V
+# CI Jobs
+jobs:
+  include:
+    # Test stage
+    - stage: test
+      env:
+        - STAGE=test
+      install:
+        - sudo apt-get install libfuse-dev
+        - fusermount -V
+        - gcc --version
+      before_script:
+        - mkdir mount
+        - sudo chmod a+rw /dev/loop0
+        - dd if=/dev/zero bs=512 count=2048 of=disk
+        - losetup /dev/loop0 disk
+      script:
+        # Build
+        - make
+        # Format and mount
+        - ./lfs --format /dev/loop0
+        - ./lfs /dev/loop0 mount
+        # Some simple operations than self hosting test
+        - ls mount
+        - cp -r littlefs mount/littlefs
+        - cd mount/littlefs
+        - stat .
+        - ls -flh
+        - make -B test_dirs test_files QUIET=1
 
-install:
-    - sudo apt-get install libfuse-dev
+    # Deploy stage for updating versions and tags
+    - stage: deploy
+      env:
+        - STAGE=deploy
+      script:
+        - |
+          bash << 'SCRIPT'
+          set -ev
+          # Find version defined in lfs.h
+          LFS_VERSION=$(grep -ox '#define LFS_VERSION .*' littlefs/lfs.h | cut -d ' ' -f3)
+          LFS_VERSION_MAJOR=$((0xffff & ($LFS_VERSION >> 16)))
+          LFS_VERSION_MINOR=$((0xffff & ($LFS_VERSION >>  0)))
+          # Grab latest patch from repo tags, default to 0, needs finagling
+          # to get past GitHub's pagination API
+          PREV_URL=https://api.github.com/repos/$TRAVIS_REPO_SLUG/git/refs/tags/v$LFS_VERSION_MAJOR.$LFS_VERSION_MINOR.
+          PREV_URL=$(curl -u "$GEKY_BOT_RELEASES" "$PREV_URL" -I \
+              | sed -n '/^Link/{s/.*<\(.*\)>; rel="last"/\1/;p;q0};$q1' \
+              || echo $PREV_URL)
+          LFS_VERSION_PATCH=$(curl -u "$GEKY_BOT_RELEASES" "$PREV_URL" \
+              | jq 'map(.ref | match("\\bv.*\\..*\\.(.*)$";"g")
+                  .captures[].string | tonumber) | max + 1' \
+              || echo 0)
+          # We have our new version
+          LFS_VERSION="v$LFS_VERSION_MAJOR.$LFS_VERSION_MINOR.$LFS_VERSION_PATCH"
+          echo "VERSION $LFS_VERSION"
+          # Check that we're the most recent commit
+          CURRENT_COMMIT=$(curl -f -u "$GEKY_BOT_RELEASES" \
+              https://api.github.com/repos/$TRAVIS_REPO_SLUG/commits/master \
+              | jq -re '.sha')
+          [ "$TRAVIS_COMMIT" == "$CURRENT_COMMIT" ] || exit 0
+          # Create major branch (vN)
+          git branch v$LFS_VERSION_MAJOR HEAD
+          git push https://$GEKY_BOT_RELEASES@github.com/$TRAVIS_REPO_SLUG.git \
+              v$LFS_VERSION_MAJOR
+          # Create patch version tag (vN.N.N)
+          curl -f -u "$GEKY_BOT_RELEASES" -X POST \
+              https://api.github.com/repos/$TRAVIS_REPO_SLUG/git/refs \
+              -d "{
+                  \"ref\": \"refs/tags/$LFS_VERSION\",
+                  \"sha\": \"$TRAVIS_COMMIT\"
+              }"
+          SCRIPT
 
-before_script:
-    - mkdir mount
-    - sudo chmod a+rw /dev/loop0
-    - dd if=/dev/zero bs=512 count=2048 of=disk
-    - losetup /dev/loop0 disk
-
-script:
-    - make
-    - ./lfs --format /dev/loop0
-    - ./lfs /dev/loop0 mount
-    - cd mount && ls
-    - cp -r ../littlefs .
-    - cd littlefs && ls
-    - make -B test_dirs
-    - make -B test_files
-
-deploy:
-    # Let before_deploy take over
-    provider: script
-    script: 'true'
-    on:
-        branch: master
-
-before_deploy:
-    - cd $TRAVIS_BUILD_DIR
-    # Update tag for version defined in lfs.h
-    - LFS_VERSION=$(grep -ox '#define LFS_VERSION .*' littlefs/lfs.h | cut -d ' ' -f3)
-    - LFS_VERSION_MAJOR=$((0xffff & ($LFS_VERSION >> 16)))
-    - LFS_VERSION_MINOR=$((0xffff & ($LFS_VERSION >>  0)))
-    - LFS_VERSION="v$LFS_VERSION_MAJOR.$LFS_VERSION_MINOR"
-    - echo "littlefs version $LFS_VERSION"
-    - |
-      curl -u $GEKY_BOT -X POST \
-        https://api.github.com/repos/$TRAVIS_REPO_SLUG/git/refs \
-        -d "{
-          \"ref\": \"refs/tags/$LFS_VERSION\",
-          \"sha\": \"$TRAVIS_COMMIT\"
-        }"
-    - |
-      curl -f -u $GEKY_BOT -X PATCH \
-        https://api.github.com/repos/$TRAVIS_REPO_SLUG/git/refs/tags/$LFS_VERSION \
-        -d "{
-          \"sha\": \"$TRAVIS_COMMIT\"
-        }"
+# Job control
+stages:
+  - name: test
+  - name: deploy
+    if: branch = master AND type = push
