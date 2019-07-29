@@ -1,8 +1,8 @@
 /*
  * Linux user-space block device wrapper
  *
- * Copyright (c) 2017 Christopher Haster
- * Distributed under the MIT license
+ * Copyright (c) 2017, Arm Limited. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 #ifndef LFS_FUSE_BD_H
 #define LFS_FUSE_BD_H
