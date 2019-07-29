@@ -35,6 +35,11 @@ static lfs_t lfs;
 
 // actual fuse functions
 void lfs_fuse_defaults(struct lfs_config *config) {
+    // default to 512 erase cycles, arbitrary value
+    if (!config->block_cycles) {
+        config->block_cycles = 512;
+    }
+
     // defaults, ram is less of a concern here than what
     // littlefs is used to, so these may end up a bit funny
     if (!config->prog_size) {
@@ -49,6 +54,7 @@ void lfs_fuse_defaults(struct lfs_config *config) {
         config->cache_size = config->block_size;
     }
 
+    // arbitrary, though we have a lot of RAM here
     if (!config->lookahead_size) {
         config->lookahead_size = 8192;
     }
@@ -396,6 +402,7 @@ static struct fuse_opt lfs_fuse_opts[] = {
     OPT("-b=%"                  SCNu32, block_size),
     OPT("--block_size=%"        SCNu32, block_size),
     OPT("--block_count=%"       SCNu32, block_count),
+    OPT("--block_cycles=%"      SCNu32, block_cycles),
     OPT("--read_size=%"         SCNu32, read_size),
     OPT("--prog_size=%"         SCNu32, prog_size),
     OPT("--cache_size=%"        SCNu32, cache_size),
@@ -423,6 +430,7 @@ static const char help_text[] =
 "    --migrate              migrate previous version  instead of mounting\n"
 "    -b   --block_size      logical block size, overrides the block device\n"
 "    --block_count          block count, overrides the block device\n"
+"    --block_cycles         number of erase cycles before eviction (512)\n"
 "    --read_size            readable unit (block_size)\n"
 "    --prog_size            programmable unit (block_size)\n"
 "    --cache_size           size of caches (block_size)\n"
