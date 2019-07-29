@@ -215,8 +215,9 @@ struct lfs_config {
     // By default lfs_malloc is used to allocate this buffer.
     void *prog_buffer;
 
-    // Optional statically allocated program buffer. Must be lookahead_size.
-    // By default lfs_malloc is used to allocate this buffer.
+    // Optional statically allocated lookahead buffer. Must be lookahead_size
+    // and aligned to a 64-bit boundary. By default lfs_malloc is used to
+    // allocate this buffer.
     void *lookahead_buffer;
 
     // Optional upper limit on length of file names in bytes. No downside for
@@ -577,7 +578,8 @@ int lfs_dir_close(lfs_t *lfs, lfs_dir_t *dir);
 // Read an entry in the directory
 //
 // Fills out the info structure, based on the specified file or directory.
-// Returns a negative error code on failure.
+// Returns a positive value on success, 0 at the end of directory,
+// or a negative error code on failure.
 int lfs_dir_read(lfs_t *lfs, lfs_dir_t *dir, struct lfs_info *info);
 
 // Change the position of the directory
