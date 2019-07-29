@@ -17,7 +17,7 @@ jobs:
       before_script:
         - mkdir mount
         - sudo chmod a+rw /dev/loop0
-        - dd if=/dev/zero bs=512 count=2048 of=disk
+        - dd if=/dev/zero bs=512 count=4096 of=disk
         - losetup /dev/loop0 disk
       script:
         # Build

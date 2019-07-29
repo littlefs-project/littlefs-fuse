@@ -23,6 +23,7 @@ override CFLAGS += -I. -Ilittlefs
 override CFLAGS += -std=c99 -Wall -pedantic
 override CFLAGS += -D_FILE_OFFSET_BITS=64
 override CFLAGS += -D_XOPEN_SOURCE=700
+override CFLAGS += -DLFS_MIGRATE
 
 override LFLAGS += -lfuse
 
