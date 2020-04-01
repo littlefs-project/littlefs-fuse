@@ -3,6 +3,11 @@ env:
   global:
     - CFLAGS=-Werror
 
+cache:
+  pip: true
+  directories:
+    - $HOME/.cache/apt
+
 # CI Jobs
 jobs:
   include:
@@ -11,13 +16,15 @@ jobs:
       env:
         - STAGE=test
       install:
+        - sudo apt-get install python3 python3-pip
+        - sudo pip3 install toml
         - sudo apt-get install libfuse-dev
         - fusermount -V
         - gcc --version
       before_script:
         - mkdir mount
         - sudo chmod a+rw /dev/loop0
-        - dd if=/dev/zero bs=512 count=4096 of=disk
+        - dd if=/dev/zero bs=512 count=128K of=disk
         - losetup /dev/loop0 disk
       script:
         # Build
@@ -31,7 +38,7 @@ jobs:
         - cd mount/littlefs
         - stat .
         - ls -flh
-        - make -B test_dirs test_files QUIET=1
+        - make -B test
 
     # Deploy stage for updating versions and tags
     - stage: deploy
