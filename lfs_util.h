@@ -31,7 +31,10 @@
 #ifndef LFS_NO_ASSERT
 #include <assert.h>
 #endif
-#if !defined(LFS_NO_DEBUG) || !defined(LFS_NO_WARN) || !defined(LFS_NO_ERROR)
+#if !defined(LFS_NO_DEBUG) || \
+        !defined(LFS_NO_WARN) || \
+        !defined(LFS_NO_ERROR) || \
+        defined(LFS_YES_TRACE)
 #include <stdio.h>
 #endif
 
@@ -46,25 +49,36 @@ extern "C"
 // code footprint
 
 // Logging functions
-#ifndef LFS_NO_DEBUG
-#define LFS_DEBUG(fmt, ...) \
-    printf("lfs debug:%d: " fmt "\n", __LINE__, __VA_ARGS__)
+#ifdef LFS_YES_TRACE
+#define LFS_TRACE_(fmt, ...) \
+    printf("%s:%d:trace: " fmt "%s\n", __FILE__, __LINE__, __VA_ARGS__)
+#define LFS_TRACE(...) LFS_TRACE_(__VA_ARGS__, "")
 #else
-#define LFS_DEBUG(fmt, ...)
+#define LFS_TRACE(...)
+#endif
+
+#ifndef LFS_NO_DEBUG
+#define LFS_DEBUG_(fmt, ...) \
+    printf("%s:%d:debug: " fmt "%s\n", __FILE__, __LINE__, __VA_ARGS__)
+#define LFS_DEBUG(...) LFS_DEBUG_(__VA_ARGS__, "")
+#else
+#define LFS_DEBUG(...)
 #endif
 
 #ifndef LFS_NO_WARN
-#define LFS_WARN(fmt, ...) \
-    printf("lfs warn:%d: " fmt "\n", __LINE__, __VA_ARGS__)
+#define LFS_WARN_(fmt, ...) \
+    printf("%s:%d:warn: " fmt "%s\n", __FILE__, __LINE__, __VA_ARGS__)
+#define LFS_WARN(...) LFS_WARN_(__VA_ARGS__, "")
 #else
-#define LFS_WARN(fmt, ...)
+#define LFS_WARN(...)
 #endif
 
 #ifndef LFS_NO_ERROR
-#define LFS_ERROR(fmt, ...) \
-    printf("lfs error:%d: " fmt "\n", __LINE__, __VA_ARGS__)
+#define LFS_ERROR_(fmt, ...) \
+    printf("%s:%d:error: " fmt "%s\n", __FILE__, __LINE__, __VA_ARGS__)
+#define LFS_ERROR(...) LFS_ERROR_(__VA_ARGS__, "")
 #else
-#define LFS_ERROR(fmt, ...)
+#define LFS_ERROR(...)
 #endif
 
 // Runtime assertions
@@ -97,7 +111,7 @@ static inline uint32_t lfs_alignup(uint32_t a, uint32_t alignment) {
     return lfs_aligndown(a + alignment-1, alignment);
 }
 
-// Find the next smallest power of 2 less than or equal to a
+// Find the smallest power of 2 greater than or equal to a
 static inline uint32_t lfs_npw2(uint32_t a) {
 #if !defined(LFS_NO_INTRINSICS) && (defined(__GNUC__) || defined(__CC_ARM))
     return 32 - __builtin_clz(a-1);
