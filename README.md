@@ -2,8 +2,8 @@
 
 A FUSE wrapper that puts the littlefs in user-space.
 
-**FUSE** - https://github.com/libfuse/libfuse  
-**littlefs** - https://github.com/geky/littlefs  
+**FUSE** - https://github.com/libfuse/libfuse
+**littlefs** - https://github.com/ARMmbed/littlefs
 
 This project allows you to mount littlefs directly in a host PC.
 This allows you to easily debug an embedded system using littlefs on
@@ -18,6 +18,7 @@ since littlefs is intended for embedded systems.
 Currently littlefs-fuse has been tested on the following OSs:
 - [Linux](#usage-on-linux)
 - [FreeBSD](#usage-on-freebsd)
+- [macOS](#usage-on-macos)
 
 ## Usage on Linux
 
@@ -130,6 +131,58 @@ After using littlefs, you can unmount and detach the loop device:
 cd ..
 umount mount
 sudo mdconfig -du 0
+```
+
+## Usage on macOS
+
+littlefs-fuse requires [osxfuse](https://osxfuse.github.io/) for macOS:
+```bash
+brew cask install osxfuse
+```
+
+Once you have cloned littlefs-fuse, you can compile the program with make:
+``` bash
+make
+```
+
+This should have built the `lfs` program in the top-level directory.
+
+From here we will need a block device. If you don't have removable storage
+handy, you can use a file-backed block device with FreeBSD's loop devices:
+``` bash
+dd if=/dev/zero of=image bs=1m count=1                                  # create a 1 MB image
+hdiutil attach -imagekey diskimage-class=CRawDiskImage -nomount image   # attach the loop device
+sudo chmod 666 /dev/diskX                                               # make loop device user accessible,
+```
+
+littlefs-fuse has two modes of operation, formatting and mounting.
+
+To format a block device, pass the `--format` flag. Note! This will erase any
+data on the block device!
+``` bash
+./lfs --format /dev/diskX
+```
+
+To mount, run littlefs-fuse with a block device and a mountpoint:
+``` bash
+mkdir mount
+./lfs /dev/diskX mount
+```
+
+Once mounted, the littlefs filesystem will be accessible through the
+mountpoint. You can now use the littlefs like you would any other filesystem:
+``` bash
+cd mount
+echo "hello" > hi.txt
+ls
+cat hi.txt
+```
+
+After using littlefs, you can unmount and detach the loop device:
+``` bash
+cd ..
+hdiutil unmount /dev/diskX
+hdiutil detach /dev/diskX
 ```
 
 ## Limitations
