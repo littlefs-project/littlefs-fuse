@@ -11,6 +11,7 @@
 #define LFS_BLOCK_INLINE ((lfs_block_t)-2)
 
 /// Caching block device operations ///
+
 static inline void lfs_cache_drop(lfs_t *lfs, lfs_cache_t *rcache) {
     // do not zero, cheaper if cache is readonly or only going to be
     // written with identical data (during relocates)
@@ -268,22 +269,26 @@ static inline int lfs_pair_cmp(
              paira[0] == pairb[1] || paira[1] == pairb[0]);
 }
 
+#ifndef LFS_READONLY
 static inline bool lfs_pair_sync(
         const lfs_block_t paira[2],
         const lfs_block_t pairb[2]) {
     return (paira[0] == pairb[0] && paira[1] == pairb[1]) ||
            (paira[0] == pairb[1] && paira[1] == pairb[0]);
 }
+#endif
 
 static inline void lfs_pair_fromle32(lfs_block_t pair[2]) {
     pair[0] = lfs_fromle32(pair[0]);
     pair[1] = lfs_fromle32(pair[1]);
 }
 
+#ifndef LFS_READONLY
 static inline void lfs_pair_tole32(lfs_block_t pair[2]) {
     pair[0] = lfs_tole32(pair[0]);
     pair[1] = lfs_tole32(pair[1]);
 }
+#endif
 
 // operations on 32-bit entry tags
 typedef uint32_t lfs_tag_t;
@@ -365,6 +370,7 @@ static inline bool lfs_gstate_iszero(const lfs_gstate_t *a) {
     return true;
 }
 
+#ifndef LFS_READONLY
 static inline bool lfs_gstate_hasorphans(const lfs_gstate_t *a) {
     return lfs_tag_size(a->tag);
 }
@@ -376,6 +382,7 @@ static inline uint8_t lfs_gstate_getorphans(const lfs_gstate_t *a) {
 static inline bool lfs_gstate_hasmove(const lfs_gstate_t *a) {
     return lfs_tag_type1(a->tag);
 }
+#endif
 
 static inline bool lfs_gstate_hasmovehere(const lfs_gstate_t *a,
         const lfs_block_t *pair) {
@@ -388,11 +395,13 @@ static inline void lfs_gstate_fromle32(lfs_gstate_t *a) {
     a->pair[1] = lfs_fromle32(a->pair[1]);
 }
 
+#ifndef LFS_READONLY
 static inline void lfs_gstate_tole32(lfs_gstate_t *a) {
     a->tag     = lfs_tole32(a->tag);
     a->pair[0] = lfs_tole32(a->pair[0]);
     a->pair[1] = lfs_tole32(a->pair[1]);
 }
+#endif
 
 // other endianness operations
 static void lfs_ctz_fromle32(struct lfs_ctz *ctz) {
@@ -416,6 +425,7 @@ static inline void lfs_superblock_fromle32(lfs_superblock_t *superblock) {
     superblock->attr_max    = lfs_fromle32(superblock->attr_max);
 }
 
+#ifndef LFS_READONLY
 static inline void lfs_superblock_tole32(lfs_superblock_t *superblock) {
     superblock->version     = lfs_tole32(superblock->version);
     superblock->block_size  = lfs_tole32(superblock->block_size);
@@ -424,6 +434,7 @@ static inline void lfs_superblock_tole32(lfs_superblock_t *superblock) {
     superblock->file_max    = lfs_tole32(superblock->file_max);
     superblock->attr_max    = lfs_tole32(superblock->attr_max);
 }
+#endif
 
 #ifndef LFS_NO_ASSERT
 static bool lfs_mlist_isopen(struct lfs_mlist *head,
@@ -1449,7 +1460,7 @@ static int lfs_dir_alloc(lfs_t *lfs, lfs_mdir_t *dir) {
         }
     }
 
-    // zero for reproducability in case initial block is unreadable
+    // zero for reproducibility in case initial block is unreadable
     dir->rev = 0;
 
     // rather than clobbering one of the blocks we just pretend
@@ -1509,7 +1520,6 @@ static int lfs_dir_split(lfs_t *lfs,
         lfs_mdir_t *dir, const struct lfs_mattr *attrs, int attrcount,
         lfs_mdir_t *source, uint16_t split, uint16_t end) {
     // create tail directory
-    lfs_alloc_ack(lfs);
     lfs_mdir_t tail;
     int err = lfs_dir_alloc(lfs, &tail);
     if (err) {
@@ -2730,7 +2740,6 @@ static int lfs_file_outline(lfs_t *lfs, lfs_file_t *file) {
 }
 #endif
 
-#ifndef LFS_READONLY
 static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
     if (file->flags & LFS_F_READING) {
         if (!(file->flags & LFS_F_INLINE)) {
@@ -2739,6 +2748,7 @@ static int lfs_file_flush(lfs_t *lfs, lfs_file_t *file) {
         file->flags &= ~LFS_F_READING;
     }
 
+#ifndef LFS_READONLY
     if (file->flags & LFS_F_WRITING) {
         lfs_off_t pos = file->pos;
 
@@ -2805,10 +2815,10 @@ relocate:
 
         file->pos = pos;
     }
+#endif
 
     return 0;
 }
-#endif
 
 #ifndef LFS_READONLY
 static int lfs_file_rawsync(lfs_t *lfs, lfs_file_t *file) {
@@ -3081,13 +3091,11 @@ static lfs_soff_t lfs_file_rawseek(lfs_t *lfs, lfs_file_t *file,
         return npos;
     }
 
-#ifndef LFS_READONLY
     // write out everything beforehand, may be noop if rdonly
     int err = lfs_file_flush(lfs, file);
     if (err) {
         return err;
     }
-#endif
 
     // update pos
     file->pos = npos;
@@ -4074,7 +4082,7 @@ static int lfs_fs_relocate(lfs_t *lfs,
             lfs_fs_prepmove(lfs, 0x3ff, NULL);
         }
 
-        // replace bad pair, either we clean up desync, or no desync occured
+        // replace bad pair, either we clean up desync, or no desync occurred
         lfs_pair_tole32(newpair);
         err = lfs_dir_commit(lfs, &parent, LFS_MKATTRS(
                 {LFS_MKTAG_IF(moveid != 0x3ff,
