@@ -46,7 +46,7 @@ int lfs_fuse_bd_create(struct lfs_config *cfg, const char *path) {
         if (err) {
             return -errno;
         }
-        cfg->block_count = size;
+        cfg->block_count = size * 512 / cfg->block_size;
     }
 
     // setup function pointers
