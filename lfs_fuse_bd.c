@@ -71,17 +71,24 @@ int lfs_fuse_bd_read(const struct lfs_config *cfg, lfs_block_t block,
     assert(block < cfg->block_count);
 
     // go to block
-    off_t err = lseek(fd, (off_t)block*cfg->block_size + (off_t)off, SEEK_SET);
+    off_t offrq = (off_t)block*cfg->block_size + (off_t)off;
+    off_t err = lseek(fd,offrq, SEEK_SET);
     if (err < 0) {
         return -errno;
+    } else if( err != offrq ) {
+        return LFS_ERR_IO;
     }
-
-    // read block
-    ssize_t res = read(fd, buffer, (size_t)size);
-    if (res < 0) {
-        return -errno;
-    }
-
+    char* rdb = buffer;
+    do {
+        // read block
+        ssize_t res = read(fd, rdb, (size_t)size);
+        if (res <= 0) {
+            return (res==0)?(LFS_ERR_IO):(-errno);
+        } else {
+            rdb += res;
+            size -= res;
+        }
+    } while( size > 0 );
     return 0;
 }
 
@@ -93,16 +100,25 @@ int lfs_fuse_bd_prog(const struct lfs_config *cfg, lfs_block_t block,
     assert(block < cfg->block_count);
 
     // go to block
-    off_t err = lseek(fd, (off_t)block*cfg->block_size + (off_t)off, SEEK_SET);
+    off_t offrq = (off_t)block*cfg->block_size + (off_t)off;
+    off_t err = lseek(fd,offrq, SEEK_SET);
     if (err < 0) {
         return -errno;
+    } else if(err != offrq )
+    {
+        return LFS_ERR_IO;
     }
-
-    // write block
-    ssize_t res = write(fd, buffer, (size_t)size);
-    if (res < 0) {
-        return -errno;
-    }
+    const char* wrb = buffer;
+    do {
+        // write block
+        ssize_t res = write(fd, wrb, (size_t)size);
+        if (res <= 0) {
+            return (res==0)?(LFS_ERR_IO):(-errno);
+        } else {
+            wrb += res;
+            size -= res;
+        }
+    } while(0);
 
     return 0;
 }
@@ -119,7 +135,6 @@ int lfs_fuse_bd_sync(const struct lfs_config *cfg) {
     if (err) {
         return -errno;
     }
-
     return 0;
 }
 
