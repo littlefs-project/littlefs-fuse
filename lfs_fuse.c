@@ -40,6 +40,7 @@
 // config and other state
 static struct lfs_config config = {0};
 static const char *device = NULL;
+static bool stat_ = false;
 static bool format = false;
 static bool migrate = false;
 static lfs_t lfs;
@@ -80,6 +81,59 @@ void *lfs_fuse_init(struct fuse_conn_info *conn) {
     conn->want |= FUSE_CAP_BIG_WRITES;
 
     return 0;
+}
+
+int lfs_fuse_stat(void) {
+    int err = lfs_fuse_bd_create(&config, device);
+    if (err) {
+        return err;
+    }
+
+    lfs_fuse_defaults(&config);
+
+    err = lfs_mount(&lfs, &config);
+    if (err) {
+        goto failed;
+    }
+
+    // get on-disk info
+    struct lfs_fsinfo fsinfo;
+    err = lfs_fs_stat(&lfs, &fsinfo);
+    if (err) {
+        goto failed;
+    }
+
+    // get block usage
+    lfs_ssize_t in_use = lfs_fs_size(&lfs);
+    if (in_use < 0) {
+        err = in_use;
+        goto failed;
+    }
+
+    // print to stdout
+    printf("disk_version: lfs%d.%d\n",
+            0xffff & (fsinfo.disk_version >> 16),
+            0xffff & (fsinfo.disk_version >>  0));
+    printf("block_size: %d\n", config.block_size);
+    printf("block_count: %d\n", config.block_count);
+    printf("  used: %d/%d (%.1f%%)\n",
+            in_use,
+            config.block_count,
+            100.0f * (float)in_use / (float)config.block_count);
+    printf("  free: %d/%d (%.1f%%)\n",
+            config.block_count-in_use,
+            config.block_count,
+            100.0f * (float)(config.block_count-in_use)
+                / (float)config.block_count);
+    printf("name_max: %d\n", fsinfo.name_max);
+    printf("file_max: %d\n", fsinfo.file_max);
+    printf("attr_max: %d\n", fsinfo.attr_max);
+
+    err = lfs_unmount(&lfs);
+
+failed:
+    lfs_fuse_bd_destroy(&config);
+    return err;
 }
 
 int lfs_fuse_format(void) {
@@ -129,6 +183,14 @@ void lfs_fuse_destroy(void *eh) {
 int lfs_fuse_statfs(const char *path, struct statvfs *s) {
     memset(s, 0, sizeof(struct statvfs));
 
+    // get the on-disk name_max from littlefs
+    struct lfs_fsinfo fsinfo;
+    int err = lfs_fs_stat(&lfs, &fsinfo);
+    if (err) {
+        return err;
+    }
+
+    // get the filesystem block usage from littlefs
     lfs_ssize_t in_use = lfs_fs_size(&lfs);
     if (in_use < 0) {
         return in_use;
@@ -139,7 +201,7 @@ int lfs_fuse_statfs(const char *path, struct statvfs *s) {
     s->f_blocks = config.block_count;
     s->f_bfree = config.block_count - in_use;
     s->f_bavail = config.block_count - in_use;
-    s->f_namemax = config.name_max;
+    s->f_namemax = fsinfo.name_max;
 
     return 0;
 }
@@ -403,14 +465,19 @@ static struct fuse_operations lfs_fuse_ops = {
 enum lfs_fuse_keys {
     KEY_HELP,
     KEY_VERSION,
+    KEY_STAT,
     KEY_FORMAT,
     KEY_MIGRATE,
+    KEY_DISK_VERSION,
 };
 
 #define OPT(t, p) { t, offsetof(struct lfs_config, p), 0}
 static struct fuse_opt lfs_fuse_opts[] = {
+    FUSE_OPT_KEY("--stat",      KEY_STAT),
     FUSE_OPT_KEY("--format",    KEY_FORMAT),
     FUSE_OPT_KEY("--migrate",   KEY_MIGRATE),
+    {"-d=",                     -1U, KEY_DISK_VERSION},
+    {"--disk_version=",         -1U, KEY_DISK_VERSION},
     OPT("-b=%"                  SCNu32, block_size),
     OPT("--block_size=%"        SCNu32, block_size),
     OPT("--block_count=%"       SCNu32, block_count),
@@ -438,8 +505,10 @@ static const char help_text[] =
 "    -V   --version         print version\n"
 "\n"
 "littlefs options:\n"
+"    --stat                 print filesystem info instead of mounting\n"
 "    --format               format instead of mounting\n"
 "    --migrate              migrate previous version  instead of mounting\n"
+"    -d   --disk_version    attempt to use this on-disk version of littlefs\n"
 "    -b   --block_size      logical block size, overrides the block device\n"
 "    --block_count          block count, overrides the block device\n"
 "    --block_cycles         number of erase cycles before eviction (512)\n"
@@ -464,6 +533,10 @@ int lfs_fuse_opt_proc(void *data, const char *arg,
             }
             break;
 
+        case KEY_STAT:
+            stat_ = true;
+            return 0;
+
         case KEY_FORMAT:
             format = true;
             return 0;
@@ -483,11 +556,72 @@ int lfs_fuse_opt_proc(void *data, const char *arg,
                 LFS_FUSE_VERSION_MAJOR, LFS_FUSE_VERSION_MINOR);
             fprintf(stderr, "littlefs version: v%d.%d\n",
                 LFS_VERSION_MAJOR, LFS_VERSION_MINOR);
-            fprintf(stderr, "littlefs disk version: v%d.%d\n",
+            fprintf(stderr, "littlefs disk version: lfs%d.%d\n",
                 LFS_DISK_VERSION_MAJOR, LFS_DISK_VERSION_MINOR);
             fuse_opt_add_arg(args, "--version");
             fuse_main(args->argc, args->argv, &lfs_fuse_ops, NULL);
             exit(0);
+
+        case KEY_DISK_VERSION: {
+            // skip opt prefix
+            const char *arg_ = strchr(arg, '=');
+            if (arg_) {
+                arg = arg_ + 1;
+            }
+
+            // parse out the requested disk version
+            // supported formats:
+            // - no-prefix       - 2.1
+            // - v-prefix        - v2.1
+            // - lfs-prefix      - lfs2.1
+            // - littlefs-prefix - littlefs2.1
+            const char *orig_arg = arg;
+            if (strlen(arg) >= strlen("v")
+                    && memcmp(arg, "v", strlen("v")) == 0) {
+                arg += strlen("v");
+            } else if (strlen(arg) >= strlen("lfs")
+                    && memcmp(arg, "lfs", strlen("lfs")) == 0) {
+                arg += strlen("lfs");
+            } else if (strlen(arg) >= strlen("littlefs")
+                    && memcmp(arg, "littlefs", strlen("littlefs")) == 0) {
+                arg += strlen("littlefs");
+            }
+
+            char *parsed;
+            uintmax_t major = strtoumax(arg, &parsed, 0);
+            if (parsed == arg) {
+                goto invalid_version;
+            }
+            arg = parsed;
+
+            if (arg[0] != '.') {
+                goto invalid_version;
+            }
+            arg += 1;
+
+            uintmax_t minor = strtoumax(arg, &parsed, 0);
+            if (parsed == arg) {
+                goto invalid_version;
+            }
+            arg = parsed;
+
+            if (arg[0] != '\0') {
+                goto invalid_version;
+            }
+
+            if (major > 0xffff || minor > 0xffff) {
+                goto invalid_version;
+            }
+
+            config.disk_version
+                    = ((major & 0xffff) << 16)
+                    | ((minor & 0xffff) <<  0);
+            return 0;
+
+        invalid_version:
+            fprintf(stderr, "invalid disk version: \"%s\"\n", orig_arg);
+            exit(1);
+        }
     }
 
     return 1;
@@ -500,6 +634,16 @@ int main(int argc, char *argv[]) {
     if (!device) {
         fprintf(stderr, "missing device parameter\n");
         exit(1);
+    }
+
+    if (stat_) {
+        // stat time, no mount
+        int err = lfs_fuse_stat();
+        if (err) {
+            LFS_ERROR("%s", strerror(-err));
+            exit(-err);
+        }
+        exit(0);
     }
 
     if (format) {
