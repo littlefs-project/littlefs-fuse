@@ -1,0 +1,109 @@
+name: release
+on:
+  workflow_run:
+    workflows: [test]
+    branches: [master]
+    types: [completed]
+
+defaults:
+  run:
+    shell: bash -euv -o pipefail {0}
+
+jobs:
+  release:
+    runs-on: ubuntu-22.04
+
+    # need to manually check for a couple things
+    # - tests passed?
+    # - we are the most recent commit on master?
+    if: ${{github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_sha == github.sha}}
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{github.event.workflow_run.head_sha}}
+          # need workflow access since we push branches
+          # containing workflows
+          token: ${{secrets.BOT_TOKEN}}
+          # need all tags
+          fetch-depth: 0
+
+      - name: find-version
+        run: |
+          # rip version from lfs_fuse.c
+          LFS_FUSE_VERSION="$( \
+            grep -o '^#define LFS_FUSE_VERSION .*$' lfs_fuse.c \
+            | awk '{print $3}')"
+          LFS_FUSE_VERSION_MAJOR="$((0xffff & ($LFS_FUSE_VERSION >> 16)))"
+          LFS_FUSE_VERSION_MINOR="$((0xffff & ($LFS_FUSE_VERSION >>  0)))"
+
+          # find a new patch version based on what we find in our tags
+          LFS_FUSE_VERSION_PATCH="$( \
+            ( git describe --tags --abbrev=0 \
+                --match="v$LFS_FUSE_VERSION_MAJOR.$LFS_FUSE_VERSION_MINOR.*" \
+              || echo 'v0.0.-1' ) \
+            | awk -F '.' '{print $3+1}')"
+
+          # found new version
+          LFS_FUSE_VERSION="v$LFS_FUSE_VERSION_MAJOR`
+            `.$LFS_FUSE_VERSION_MINOR`
+            `.$LFS_FUSE_VERSION_PATCH"
+          echo "LFS_FUSE_VERSION=$LFS_FUSE_VERSION"
+          echo "LFS_FUSE_VERSION=$LFS_FUSE_VERSION" >> $GITHUB_ENV
+          echo "LFS_FUSE_VERSION_MAJOR=$LFS_FUSE_VERSION_MAJOR" >> $GITHUB_ENV
+          echo "LFS_FUSE_VERSION_MINOR=$LFS_FUSE_VERSION_MINOR" >> $GITHUB_ENV
+          echo "LFS_FUSE_VERSION_PATCH=$LFS_FUSE_VERSION_PATCH" >> $GITHUB_ENV
+
+      # try to find previous version?
+      - name: find-prev-version
+        continue-on-error: true
+        run: |
+          LFS_FUSE_PREV_VERSION="$( \
+            git describe --tags --abbrev=0 --match 'v*' \
+            || true)"
+          echo "LFS_FUSE_PREV_VERSION=$LFS_FUSE_PREV_VERSION"
+          echo "LFS_FUSE_PREV_VERSION=$LFS_FUSE_PREV_VERSION" >> $GITHUB_ENV
+
+      # find changes from history
+      - name: create-changes
+        run: |
+          [ -n "$LFS_FUSE_PREV_VERSION" ] || exit 0
+          # use explicit link to github commit so that release notes can
+          # be copied elsewhere
+          git log "$LFS_FUSE_PREV_VERSION.." \
+            --grep='^Merge' --invert-grep \
+            --format="format:[\`%h\`](`
+              `https://github.com/$GITHUB_REPOSITORY/commit/%h) %s" \
+            > changes.txt
+          echo "CHANGES:"
+          cat changes.txt
+
+      # create and update major branches (vN)
+      - name: create-major-branches
+        run: |
+          # create major branch
+          git branch "v$LFS_FUSE_VERSION_MAJOR" HEAD
+
+          # push!
+          git push --atomic origin "v$LFS_FUSE_VERSION_MAJOR"
+
+      # build release notes
+      - name: create-release
+        run: |
+          # create release and patch version tag (vN.N.N)
+          # only draft if not a patch release
+          touch release.txt
+          [ -e changes.txt ] && cat changes.txt >> release.txt
+          cat release.txt
+
+          curl -sS -X POST -H "authorization: token ${{secrets.BOT_TOKEN}}" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/releases" \
+            -d "$(jq -n --rawfile release release.txt '{
+              tag_name: env.LFS_FUSE_VERSION,
+              name: env.LFS_FUSE_VERSION | rtrimstr(".0"),
+              target_commitish: "${{github.event.workflow_run.head_sha}}",
+              draft: env.LFS_FUSE_VERSION | endswith(".0"),
+              body: $release,
+            }' | tee /dev/stderr)"
+
