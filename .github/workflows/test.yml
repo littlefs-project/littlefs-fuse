@@ -1,0 +1,50 @@
+name: test
+on: [push, pull_request]
+
+defaults:
+  run:
+    shell: bash -euv -o pipefail {0}
+
+env:
+  CFLAGS: -Werror
+  MAKEFLAGS: -j
+
+jobs:
+  # self-host test with littlefs-fuse
+  test:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v2
+      - name: install
+        run: |
+          # need a few things
+          sudo apt-get update -qq
+          sudo apt-get install -qq gcc python3 python3-pip libfuse-dev
+          sudo pip3 install toml
+          gcc --version
+          python3 --version
+          fusermount -V
+      - name: setup
+        run: |
+          # setup disk for littlefs-fuse
+          mkdir mount
+          LOOP=$(sudo losetup -f)
+          sudo chmod a+rw $LOOP
+          dd if=/dev/zero bs=512 count=128K of=disk
+          losetup $LOOP disk
+          echo "LOOP=$LOOP" >> $GITHUB_ENV
+      - name: test
+        run: |
+          # self-host test
+          make
+
+          ./lfs --format $LOOP
+          ./lfs $LOOP mount
+
+          ls mount
+          cp -r littlefs mount/littlefs
+          cd mount/littlefs
+          stat .
+          ls -flh
+          make -B test-runner
+          make -B test

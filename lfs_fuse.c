@@ -25,6 +25,18 @@
 #include <errno.h>
 
 
+// littefs-fuse version
+//
+// Note this is different from the littlefs core version, and littlefs
+// on-disk version
+//
+// Major (top-nibble), incremented on backwards incompatible changes
+// Minor (bottom-nibble), incremented on feature additions
+#define LFS_FUSE_VERSION 0x00020006
+#define LFS_FUSE_VERSION_MAJOR (0xffff & (LFS_FUSE_VERSION >> 16))
+#define LFS_FUSE_VERSION_MINOR (0xffff & (LFS_FUSE_VERSION >>  0))
+
+
 // config and other state
 static struct lfs_config config = {0};
 static const char *device = NULL;
@@ -467,10 +479,12 @@ int lfs_fuse_opt_proc(void *data, const char *arg,
             exit(1);
             
         case KEY_VERSION:
+            fprintf(stderr, "littlefs-fuse version: v%d.%d\n",
+                LFS_FUSE_VERSION_MAJOR, LFS_FUSE_VERSION_MINOR);
             fprintf(stderr, "littlefs version: v%d.%d\n",
-                 LFS_VERSION_MAJOR, LFS_VERSION_MINOR);
+                LFS_VERSION_MAJOR, LFS_VERSION_MINOR);
             fprintf(stderr, "littlefs disk version: v%d.%d\n",
-                 LFS_DISK_VERSION_MAJOR, LFS_DISK_VERSION_MINOR);
+                LFS_DISK_VERSION_MAJOR, LFS_DISK_VERSION_MINOR);
             fuse_opt_add_arg(args, "--version");
             fuse_main(args->argc, args->argv, &lfs_fuse_ops, NULL);
             exit(0);
