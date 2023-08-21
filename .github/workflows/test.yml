@@ -50,6 +50,10 @@ jobs:
           make -B test-runner
           make -B test
 
+          cd ../..
+          umount mount
+          ./lfs --stat $LOOP
+
   # test older versions
   test-lfs2_0:
     runs-on: ubuntu-22.04
@@ -89,6 +93,10 @@ jobs:
           ls -flh
           make -B test-runner
           make -B test
+
+          cd ../..
+          umount mount
+          ./lfs --stat $LOOP
       - name: test-migrate
         run: |
           # self-host test, this time migrating to current version
@@ -106,4 +114,6 @@ jobs:
           make -B test-runner
           make -B test
 
+          cd ../..
+          umount mount
           ./lfs --stat $LOOP
