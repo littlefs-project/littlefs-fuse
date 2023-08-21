@@ -39,6 +39,7 @@ jobs:
           make
 
           ./lfs --format $LOOP
+          ./lfs --stat $LOOP
           ./lfs $LOOP mount
 
           ls mount
@@ -48,3 +49,61 @@ jobs:
           ls -flh
           make -B test-runner
           make -B test
+
+  # test older versions
+  test-lfs2_0:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v2
+      - name: install
+        run: |
+          # need a few things
+          sudo apt-get update -qq
+          sudo apt-get install -qq gcc python3 python3-pip libfuse-dev
+          sudo pip3 install toml
+          gcc --version
+          python3 --version
+          fusermount -V
+      - name: setup
+        run: |
+          # setup disk for littlefs-fuse
+          mkdir mount
+          LOOP=$(sudo losetup -f)
+          sudo chmod a+rw $LOOP
+          dd if=/dev/zero bs=512 count=128K of=disk
+          losetup $LOOP disk
+          echo "LOOP=$LOOP" >> $GITHUB_ENV
+      - name: test
+        run: |
+          # self-host test
+          make
+
+          ./lfs -d=lfs2.0 --format $LOOP
+          ./lfs --stat $LOOP
+          ./lfs -d=lfs2.0 $LOOP mount
+
+          ls mount
+          cp -r littlefs mount/littlefs
+          cd mount/littlefs
+          stat .
+          ls -flh
+          make -B test-runner
+          make -B test
+      - name: test-migrate
+        run: |
+          # self-host test, this time migrating to current version
+          make
+
+          ./lfs -d=lfs2.0 --format $LOOP
+          ./lfs --stat $LOOP
+          ./lfs $LOOP mount
+
+          ls mount
+          cp -r littlefs mount/littlefs
+          cd mount/littlefs
+          stat .
+          ls -flh
+          make -B test-runner
+          make -B test
+
+          ./lfs --stat $LOOP
