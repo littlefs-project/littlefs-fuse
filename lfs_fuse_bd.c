@@ -41,12 +41,12 @@ int lfs_fuse_bd_create(struct lfs_config *cfg, const char *path) {
 
     // get size in sectors
     if (!cfg->block_count) {
-        long size;
-        int err = ioctl(fd, BLKGETSIZE, &size);
+        uint64_t size;
+        int err = ioctl(fd, BLKGETSIZE64, &size);
         if (err) {
             return -errno;
         }
-        cfg->block_count = size * 512 / cfg->block_size;
+        cfg->block_count = size / cfg->block_size;
     }
 
     // setup function pointers
