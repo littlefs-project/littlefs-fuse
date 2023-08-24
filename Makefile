@@ -23,6 +23,9 @@ override CFLAGS += -I. -Ilittlefs
 override CFLAGS += -std=c99 -Wall -pedantic
 override CFLAGS += -D_FILE_OFFSET_BITS=64
 override CFLAGS += -D_XOPEN_SOURCE=700
+# enable multiversion support in littlefs
+override CFLAGS += -DLFS_MULTIVERSION
+# enable migrate support in littlefs
 override CFLAGS += -DLFS_MIGRATE
 
 override LFLAGS += -lfuse

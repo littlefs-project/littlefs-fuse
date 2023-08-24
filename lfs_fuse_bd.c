@@ -1,6 +1,7 @@
 /*
  * Linux user-space block device wrapper
  *
+ * Copyright (c) 2022, the littlefs authors.
  * Copyright (c) 2017, Arm Limited. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
  */
@@ -41,12 +42,12 @@ int lfs_fuse_bd_create(struct lfs_config *cfg, const char *path) {
 
     // get size in sectors
     if (!cfg->block_count) {
-        long size;
-        int err = ioctl(fd, BLKGETSIZE, &size);
+        uint64_t size;
+        int err = ioctl(fd, BLKGETSIZE64, &size);
         if (err) {
             return -errno;
         }
-        cfg->block_count = size;
+        cfg->block_count = size / cfg->block_size;
     }
 
     // setup function pointers
@@ -66,6 +67,7 @@ void lfs_fuse_bd_destroy(const struct lfs_config *cfg) {
 int lfs_fuse_bd_read(const struct lfs_config *cfg, lfs_block_t block,
         lfs_off_t off, void *buffer, lfs_size_t size) {
     int fd = (intptr_t)cfg->context;
+    uint8_t *buffer_ = buffer;
 
     // check if read is valid
     assert(block < cfg->block_count);
@@ -77,9 +79,14 @@ int lfs_fuse_bd_read(const struct lfs_config *cfg, lfs_block_t block,
     }
 
     // read block
-    ssize_t res = read(fd, buffer, (size_t)size);
-    if (res < 0) {
-        return -errno;
+    while (size > 0) {
+        ssize_t res = read(fd, buffer_, (size_t)size);
+        if (res < 0) {
+            return -errno;
+        }
+
+        buffer_ += res;
+        size -= res;
     }
 
     return 0;
@@ -88,6 +95,7 @@ int lfs_fuse_bd_read(const struct lfs_config *cfg, lfs_block_t block,
 int lfs_fuse_bd_prog(const struct lfs_config *cfg, lfs_block_t block,
         lfs_off_t off, const void *buffer, lfs_size_t size) {
     int fd = (intptr_t)cfg->context;
+    const uint8_t *buffer_ = buffer;
 
     // check if write is valid
     assert(block < cfg->block_count);
@@ -99,9 +107,14 @@ int lfs_fuse_bd_prog(const struct lfs_config *cfg, lfs_block_t block,
     }
 
     // write block
-    ssize_t res = write(fd, buffer, (size_t)size);
-    if (res < 0) {
-        return -errno;
+    while (size > 0) {
+        ssize_t res = write(fd, buffer_, (size_t)size);
+        if (res < 0) {
+            return -errno;
+        }
+
+        buffer_ += res;
+        size -= res;
     }
 
     return 0;
