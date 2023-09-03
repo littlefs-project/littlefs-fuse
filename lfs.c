@@ -877,7 +877,7 @@ static int lfs_dir_traverse(lfs_t *lfs,
     // iterate over directory and attrs
     lfs_tag_t tag;
     const void *buffer;
-    struct lfs_diskoff disk;
+    struct lfs_diskoff disk = {0};
     while (true) {
         {
             if (off+lfs_tag_dsize(ptag) < dir->off) {
@@ -1628,7 +1628,7 @@ static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
         }
 
         // space for fcrc?
-        uint8_t eperturb = -1;
+        uint8_t eperturb = (uint8_t)-1;
         if (noff >= end && noff <= lfs->cfg->block_size - lfs->cfg->prog_size) {
             // first read the leading byte, this always contains a bit
             // we can perturb to avoid writes that don't change the fcrc
