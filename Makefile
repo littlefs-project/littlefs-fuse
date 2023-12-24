@@ -38,6 +38,10 @@ override CFLAGS += -DLFS_MULTIVERSION
 # enable migrate support in littlefs
 override CFLAGS += -DLFS_MIGRATE
 
+ifdef DEFAULT_LFS_BLOCK_SIZE
+override CFLAGS += -DDEFAULT_LFS_BLOCK_SIZE=$(DEFAULT_LFS_BLOCK_SIZE)
+endif
+
 override LFLAGS += -lfuse
 
 ifeq ($(OS), FreeBSD)
