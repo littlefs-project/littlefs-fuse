@@ -1,10 +1,20 @@
 TARGET = lfs
 
+ifndef OS
 OS := $(shell uname -s)
+endif
 
+ifndef CC
 CC = cc
+endif
+
+ifndef AR
 AR = ar
+endif
+
+ifndef SIZE
 SIZE = size
+endif
 
 SRC += $(wildcard *.c littlefs/*.c)
 OBJ := $(SRC:.c=.o)
