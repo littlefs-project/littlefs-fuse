@@ -12,7 +12,7 @@ env:
 jobs:
   # self-host test with littlefs-fuse
   test:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - name: install
@@ -56,7 +56,7 @@ jobs:
 
   # test older versions
   test-lfs2_0:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - name: install
