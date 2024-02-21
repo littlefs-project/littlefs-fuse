@@ -1,0 +1,16 @@
+Source: littlefs-fuse
+Section: devel
+Priority: extra
+Maintainer: Deomid Ryabkov (rojer) <rojer@rojer.me>
+Build-Depends: debhelper (>=9), libfuse-dev
+Standards-Version: 3.9.8
+Homepage: https://github.com/ARMmbed/littlefs-fuse
+Vcs-Git: https://github.com/ARMmbed/littlefs-fuse
+Vcs-Browser: https://github.com/ARMmbed/littlefs-fuse
+
+Package: littlefs-fuse
+Architecture: any
+Multi-Arch: foreign
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Description: LittleFS FUSE-based tool
+  Provides a CLI tool for managing LittleFS
