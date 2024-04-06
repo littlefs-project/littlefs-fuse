@@ -1,0 +1,5 @@
+littlefs-fuse (1.2-2~bionic0) bionic; urgency=low
+
+  * Initial release.
+
+ -- Deomid Ryabkov (rojer) <rojer@rojer.me>  Mon, 25 Jun 2018 18:12:43 +0100

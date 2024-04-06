@@ -1,0 +1,11 @@
+Package: littlefs-fuse
+Version: 1.2-2~bionic0
+Architecture: amd64
+Maintainer: Deomid Ryabkov <rojer@rojer.me>
+Installed-Size: 11
+Section: devel
+Priority: extra
+Multi-Arch: foreign
+Homepage: https://github.com/ARMmbed/littlefs-fuse
+Description: LittleFS FUSE-based tool
+  Provides a CLI tool for managing LittleFS
