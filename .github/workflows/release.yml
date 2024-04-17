@@ -103,7 +103,7 @@ jobs:
               tag_name: env.LFS_FUSE_VERSION,
               name: env.LFS_FUSE_VERSION | rtrimstr(".0"),
               target_commitish: "${{github.event.workflow_run.head_sha}}",
-              draft: env.LFS_FUSE_VERSION | endswith(".0"),
+              draft: true,
               body: $release,
             }' | tee /dev/stderr)"
 
