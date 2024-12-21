@@ -1,10 +1,20 @@
 TARGET = lfs
 
+ifndef OS
 OS := $(shell uname -s)
+endif
 
+ifndef CC
 CC = cc
+endif
+
+ifndef AR
 AR = ar
+endif
+
+ifndef SIZE
 SIZE = size
+endif
 
 SRC += $(wildcard *.c littlefs/*.c)
 OBJ := $(SRC:.c=.o)
@@ -27,6 +37,10 @@ override CFLAGS += -D_XOPEN_SOURCE=700
 override CFLAGS += -DLFS_MULTIVERSION
 # enable migrate support in littlefs
 override CFLAGS += -DLFS_MIGRATE
+
+ifdef DEFAULT_LFS_BLOCK_SIZE
+override CFLAGS += -DDEFAULT_LFS_BLOCK_SIZE=$(DEFAULT_LFS_BLOCK_SIZE)
+endif
 
 override LFLAGS += -lfuse
 
