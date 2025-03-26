@@ -30,6 +30,13 @@ int lfs_fuse_bd_create(struct lfs_config *cfg, const char *path) {
     }
     cfg->context = (void*)(intptr_t)fd;
 
+    // use sector size from build override
+#ifdef DEFAULT_LFS_BLOCK_SIZE
+    if (!cfg->block_size) {
+        cfg->block_size = DEFAULT_LFS_BLOCK_SIZE;
+    }
+#endif
+
     // get sector size
     if (!cfg->block_size) {
         long ssize;
