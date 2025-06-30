@@ -828,9 +828,6 @@ static int lfs_dir_getread(lfs_t *lfs, const lfs_mdir_t *dir,
                 size -= diff;
                 continue;
             }
-
-            // rcache takes priority
-            diff = lfs_min(diff, rcache->off-off);
         }
 
         // load to cache, first condition can no longer fail
@@ -5225,7 +5222,9 @@ static int lfs_fs_gc_(lfs_t *lfs) {
     }
 
     // try to populate the lookahead buffer, unless it's already full
-    if (lfs->lookahead.size < 8*lfs->cfg->lookahead_size) {
+    if (lfs->lookahead.size < lfs_min(
+            8 * lfs->cfg->lookahead_size,
+            lfs->block_count)) {
         err = lfs_alloc_scan(lfs);
         if (err) {
             return err;
