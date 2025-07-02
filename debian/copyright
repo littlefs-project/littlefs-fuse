@@ -1,0 +1,58 @@
+Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: littlefs-fuse
+Source: https://github.com/ARMmbed/littlefs-fuse
+
+Files:     .travis.yml
+           Makefile
+           README.md
+           littlefs/.travis.yml
+           littlefs/DESIGN.md
+           littlefs/LICENSE.md
+           littlefs/Makefile
+           littlefs/README.md
+           littlefs/SPEC.md
+           littlefs/tests/stats.py
+           littlefs/tests/template.fmt
+           littlefs/tests/test.py
+           littlefs/tests/test_alloc.sh
+           littlefs/tests/test_corrupt.sh
+           littlefs/tests/test_dirs.sh
+           littlefs/tests/test_files.sh
+           littlefs/tests/test_format.sh
+           littlefs/tests/test_move.sh
+           littlefs/tests/test_orphan.sh
+           littlefs/tests/test_parallel.sh
+           littlefs/tests/test_paths.sh
+           littlefs/tests/test_seek.sh
+           littlefs/tests/test_truncate.sh
+Copyright: __NO_COPYRIGHT_NOR_LICENSE__
+License:   __NO_COPYRIGHT_NOR_LICENSE__
+
+Files:     littlefs/emubd/lfs_emubd.c
+           littlefs/emubd/lfs_emubd.h
+           littlefs/lfs.c
+           littlefs/lfs.h
+           littlefs/lfs_util.c
+           littlefs/lfs_util.h
+Copyright: 2017 ARM Limited
+License:   Apache-2.0
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ .
+ http://www.apache.org/licenses/LICENSE-2.0
+ .
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ .
+ On Debian systems, the complete text of the Apache License Version 2.0
+  can be found in `/usr/share/common-licenses/Apache-2.0'.
+
+Files:     lfs_fuse.c
+           lfs_fuse_bd.c
+           lfs_fuse_bd.h
+Copyright: 2017 Christopher Haster Distributed under the MIT license
+License:   MIT
