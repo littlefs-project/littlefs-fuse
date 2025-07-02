@@ -12,6 +12,8 @@
 #include <fcntl.h>
 #include <stdint.h>
 #include <assert.h>
+#include <sys/stat.h> 
+#include <sys/statvfs.h> 
 #if !defined(__FreeBSD__)
 #include <sys/ioctl.h>
 #include <linux/fs.h>
@@ -24,28 +26,51 @@
 
 // Block device wrapper for user-space block devices
 int lfs_fuse_bd_create(struct lfs_config *cfg, const char *path) {
-    int fd = open(path, O_RDWR);
+    struct stat st;
+    int fd;
+
+    if (stat(path, &st) < 0) {
+        return -errno;
+    }
+
+    fd = open(path, O_RDWR);
     if (fd < 0) {
         return -errno;
     }
     cfg->context = (void*)(intptr_t)fd;
 
     // get sector size
-    if (!cfg->block_size) {
-        long ssize;
-        int err = ioctl(fd, BLKSSZGET, &ssize);
-        if (err) {
-            return -errno;
-        }
-        cfg->block_size = ssize;
+    if (!cfg->block_size) {        
+        if(!S_ISBLK(st.st_mode)){ // Is a normal file
+            struct statvfs vfs_stat;
+            if (statvfs(path, &vfs_stat) == -1) {
+                return -errno;
+            }
+            cfg->block_size = vfs_stat.f_frsize; // ToDo: Which size to be used? 
+        }else{
+            long ssize;
+            int err = ioctl(fd, BLKSSZGET, &ssize);
+            if (err) {
+                return -errno;
+            }
+            cfg->block_size = ssize;
+        } 
     }
 
     // get size in sectors
     if (!cfg->block_count) {
         uint64_t size;
-        int err = ioctl(fd, BLKGETSIZE64, &size);
-        if (err) {
-            return -errno;
+        if(!S_ISBLK(st.st_mode)){ // Is a normal file
+            struct stat file_stat;
+            if (fstat(fd, &file_stat) < 0) {
+                return -errno;
+            }
+            size = file_stat.st_size;
+        }else{
+            int err = ioctl(fd, BLKGETSIZE64, &size);
+            if (err) {
+                return -errno;
+            }
         }
         cfg->block_count = size / cfg->block_size;
     }
