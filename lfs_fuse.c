@@ -264,7 +264,7 @@ int lfs_fuse_releasedir(const char *path, struct fuse_file_info *fi) {
 int lfs_fuse_readdir(const char *path, void *buf,
         fuse_fill_dir_t filler, off_t offset,
         struct fuse_file_info *fi) {
-    
+
     lfs_dir_t *dir = (lfs_dir_t*)fi->fh;
     struct stat s;
     struct lfs_info info;
@@ -545,13 +545,13 @@ int lfs_fuse_opt_proc(void *data, const char *arg,
         case KEY_MIGRATE:
             migrate = true;
             return 0;
-            
+
         case KEY_HELP:
             fprintf(stderr, help_text, args->argv[0]);
             fuse_opt_add_arg(args, "-ho");
             fuse_main(args->argc, args->argv, &lfs_fuse_ops, NULL);
             exit(1);
-            
+
         case KEY_VERSION:
             fprintf(stderr, "littlefs-fuse version: v%d.%d\n",
                 LFS_FUSE_VERSION_MAJOR, LFS_FUSE_VERSION_MINOR);

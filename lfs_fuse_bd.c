@@ -135,4 +135,3 @@ int lfs_fuse_bd_sync(const struct lfs_config *cfg) {
 
     return 0;
 }
-
