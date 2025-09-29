@@ -83,6 +83,8 @@ int lfs_fuse_bd_read(const struct lfs_config *cfg, lfs_block_t block,
         ssize_t res = read(fd, buffer_, (size_t)size);
         if (res < 0) {
             return -errno;
+        } else if (res == 0) {
+            return -EIO;
         }
 
         buffer_ += res;
@@ -135,4 +137,3 @@ int lfs_fuse_bd_sync(const struct lfs_config *cfg) {
 
     return 0;
 }
-
