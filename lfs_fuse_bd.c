@@ -43,7 +43,13 @@ int lfs_fuse_bd_create(struct lfs_config *cfg, const char *path) {
     // get size in sectors
     if (!cfg->block_count) {
         uint64_t size;
-        int err = ioctl(fd, BLKGETSIZE64, &size);
+        int err = ioctl(fd,
+#if defined(__FreeBSD__)
+                        BLKGETSIZE,
+#else
+                        BLKGETSIZE64,
+#endif
+                        &size);
         if (err) {
             return -errno;
         }
