@@ -258,7 +258,7 @@ static int lfs_bd_prog(lfs_t *lfs,
             continue;
         }
 
-        // pcache must have been flushed, either by programming and
+        // pcache must have been flushed, either by programming an
         // entire block or manually flushing the pcache
         LFS_ASSERT(pcache->block == LFS_BLOCK_NULL);
 
@@ -286,7 +286,7 @@ static int lfs_bd_erase(lfs_t *lfs, lfs_block_t block) {
 
 // some operations on paths
 static inline lfs_size_t lfs_path_namelen(const char *path) {
-    return strcspn(path, "/");
+    return (lfs_size_t)strcspn(path, "/");
 }
 
 static inline bool lfs_path_islast(const char *path) {
@@ -1291,6 +1291,7 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
 
             // found a match for our fetcher?
             if ((fmask & tag) == (fmask & ftag)) {
+                LFS_ASSERT(cb != NULL);
                 int res = cb(data, tag, &(struct lfs_diskoff){
                         dir->pair[0], off+sizeof(tag)});
                 if (res < 0) {
@@ -1501,7 +1502,7 @@ nextname:
         if (lfs_tag_type3(tag) == LFS_TYPE_DIR) {
             name += strspn(name, "/");
         }
-        lfs_size_t namelen = strcspn(name, "/");
+        lfs_size_t namelen = (lfs_size_t)strcspn(name, "/");
 
         // skip '.'
         if (namelen == 1 && memcmp(name, ".", 1) == 0) {
@@ -1520,7 +1521,7 @@ nextname:
         int depth = 1;
         while (true) {
             suffix += strspn(suffix, "/");
-            sufflen = strcspn(suffix, "/");
+            sufflen = (lfs_size_t)strcspn(suffix, "/");
             if (sufflen == 0) {
                 break;
             }
@@ -1761,7 +1762,7 @@ static int lfs_dir_commitcrc(lfs_t *lfs, struct lfs_commit *commit) {
 
         commit->off = noff;
         // perturb valid bit?
-        commit->ptag = ntag ^ ((0x80UL & ~eperturb) << 24);
+        commit->ptag = ntag ^ ((lfs_tag_t)(0x80 & ~eperturb) << 24);
         // reset crc for next commit
         commit->crc = 0xffffffff;
 
@@ -3244,10 +3245,12 @@ static int lfs_file_open_(lfs_t *lfs, lfs_file_t *file,
 #endif
 
 static int lfs_file_close_(lfs_t *lfs, lfs_file_t *file) {
-#ifndef LFS_READONLY
-    int err = lfs_file_sync_(lfs, file);
-#else
     int err = 0;
+#ifndef LFS_READONLY
+    // it's not safe to do anything if our file errored
+    if (!(file->flags & LFS_F_ERRED)) {
+        err = lfs_file_sync_(lfs, file);
+    }
 #endif
 
     // remove from list of mdirs
@@ -3429,17 +3432,11 @@ relocate:
 
 #ifndef LFS_READONLY
 static int lfs_file_sync_(lfs_t *lfs, lfs_file_t *file) {
-    if (file->flags & LFS_F_ERRED) {
-        // it's not safe to do anything if our file errored
-        return 0;
-    }
-
     int err = lfs_file_flush(lfs, file);
     if (err) {
         file->flags |= LFS_F_ERRED;
         return err;
     }
-
 
     if ((file->flags & LFS_F_DIRTY) &&
             !lfs_pair_isnull(file->m.pair)) {
@@ -3485,6 +3482,17 @@ static int lfs_file_sync_(lfs_t *lfs, lfs_file_t *file) {
         file->flags &= ~LFS_F_DIRTY;
     }
 
+    // mark any other file handles as dirty + desync
+    for (lfs_file_t *f = (lfs_file_t*)lfs->mlist; f; f = f->next) {
+        if (file != f
+                && f->type == LFS_TYPE_REG
+                && lfs_pair_cmp(f->m.pair, file->m.pair) == 0
+                && f->id == file->id) {
+            f->flags |= LFS_F_DUSTY;
+        }
+    }
+
+    file->flags &= ~LFS_F_ERRED & ~LFS_F_DUSTY;
     return 0;
 }
 #endif
@@ -3692,7 +3700,7 @@ static lfs_ssize_t lfs_file_write_(lfs_t *lfs, lfs_file_t *file,
         return nsize;
     }
 
-    file->flags &= ~LFS_F_ERRED;
+    file->flags &= ~LFS_F_ERRED & ~LFS_F_DUSTY;
     return nsize;
 }
 #endif
@@ -4771,7 +4779,8 @@ int lfs_fs_traverse_(lfs_t *lfs,
             continue;
         }
 
-        if ((f->flags & LFS_F_DIRTY) && !(f->flags & LFS_F_INLINE)) {
+        if (((f->flags & LFS_F_DIRTY) || (f->flags & LFS_F_DUSTY))
+                && !(f->flags & LFS_F_INLINE)) {
             int err = lfs_ctz_traverse(lfs, &f->cache, &lfs->rcache,
                     f->ctz.head, f->ctz.size, cb, data);
             if (err) {
