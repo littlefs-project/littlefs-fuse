@@ -1,0 +1,4 @@
+# git-build-recipe format 0.4 deb-version {latest-tag}.{revtime}+{git-commit}~artful0
+
+https://github.com/cesanta/littlefs-fuse ubuntu
+run debuild --no-tgz-check -us -uc -b
