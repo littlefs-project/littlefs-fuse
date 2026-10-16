@@ -46,6 +46,8 @@ jobs:
           cp -r littlefs mount/littlefs
           cd mount/littlefs
           stat .
+          test "$(stat -c %s .)" -eq 0
+          test "$(stat -c %s ..)" -eq 0
           ls -flh
           make -B test-runner
           make -B test
@@ -90,6 +92,8 @@ jobs:
           cp -r littlefs mount/littlefs
           cd mount/littlefs
           stat .
+          test "$(stat -c %s .)" -eq 0
+          test "$(stat -c %s ..)" -eq 0
           ls -flh
           make -B test-runner
           make -B test

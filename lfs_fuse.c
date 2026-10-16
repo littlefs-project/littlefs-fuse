@@ -210,12 +210,14 @@ int lfs_fuse_statfs(const char *path, struct statvfs *s) {
 static void lfs_fuse_tostat(struct stat *s, struct lfs_info *info) {
     memset(s, 0, sizeof(struct stat));
 
-    s->st_size = info->size;
     s->st_mode = S_IRWXU | S_IRWXG | S_IRWXO;
 
     switch (info->type) {
         case LFS_TYPE_DIR: s->st_mode |= S_IFDIR; break;
-        case LFS_TYPE_REG: s->st_mode |= S_IFREG; break;
+        case LFS_TYPE_REG:
+            s->st_mode |= S_IFREG;
+            s->st_size = info->size;
+            break;
     }
 }
 
